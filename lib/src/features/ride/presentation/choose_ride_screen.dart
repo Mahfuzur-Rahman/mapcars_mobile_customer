@@ -1,0 +1,199 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/widgets/mc.dart';
+import '../../../core/widgets/map_background.dart';
+import '../models/ride_option.dart';
+import '../models/ride_quote.dart';
+import '../providers/ride_flow_notifier.dart';
+
+class ChooseRideScreen extends ConsumerStatefulWidget {
+  const ChooseRideScreen({super.key});
+
+  @override
+  ConsumerState<ChooseRideScreen> createState() => _ChooseRideScreenState();
+}
+
+class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
+  int _selected = 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final quote = ref.watch(rideQuoteProvider);
+    return Scaffold(
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: MapBackground(
+              route: true,
+              markers: [
+                MapMarker(0.28, 0.80, MapPin(dest: false)),
+                MapMarker(0.72, 0.26, MapPin(dest: true)),
+              ],
+            ),
+          ),
+          Positioned(
+            top: 58,
+            left: 16,
+            child: McCircleButton('back', onTap: () => context.pop()),
+          ),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: McSheet(
+              height: 446,
+              child: quote.when(
+                loading: () => const Center(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(vertical: 40),
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                error: (e, _) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Could not price this trip.',
+                          style: tw(FontWeight.w700, 14, Brand.sub)),
+                      const SizedBox(height: 10),
+                      McGhostButton('Retry',
+                          onTap: () => ref.invalidate(rideQuoteProvider)),
+                    ],
+                  ),
+                ),
+                data: (q) => _RideList(
+                  quote: q,
+                  selected: _selected.clamp(0, q.options.length - 1),
+                  onSelect: (i) => setState(() => _selected = i),
+                  onConfirm: (option) {
+                    ref.read(rideFlowProvider.notifier).selectOption(option.id);
+                    context.go('/confirm');
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RideList extends StatelessWidget {
+  const _RideList({
+    required this.quote,
+    required this.selected,
+    required this.onSelect,
+    required this.onConfirm,
+  });
+
+  final RideQuote quote;
+  final int selected;
+  final ValueChanged<int> onSelect;
+  final ValueChanged<RideOption> onConfirm;
+
+  @override
+  Widget build(BuildContext context) {
+    final options = quote.options;
+    final sel = options[selected];
+    return SingleChildScrollView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const McTitle('Choose a ride', size: 19),
+          const SizedBox(height: 4),
+          Text(quote.summary, style: tw(FontWeight.w600, 12.5, Brand.sub)),
+          const SizedBox(height: 14),
+          for (int i = 0; i < options.length; i++) ...[
+            _RideRow(
+              ride: options[i],
+              selected: i == selected,
+              onTap: () => onSelect(i),
+            ),
+            if (i < options.length - 1) const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 14),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 14),
+            child: Row(
+              children: [
+                const Ico('card', size: 20, color: Brand.sub),
+                const SizedBox(width: 10),
+                Text('•••• 4242', style: tw(FontWeight.w800, 14)),
+                const Spacer(),
+                const Ico('gift', size: 18, color: Brand.sub),
+                const SizedBox(width: 6),
+                Text('Add promo', style: tw(FontWeight.w700, 13, Brand.blue)),
+              ],
+            ),
+          ),
+          McButton(
+            'Choose ${sel.name} · ${sel.formattedPrice}',
+            icon: 'bolt',
+            onTap: () => onConfirm(sel),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RideRow extends StatelessWidget {
+  const _RideRow({required this.ride, required this.selected, this.onTap});
+  final RideOption ride;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: selected ? Brand.blue.withValues(alpha: 0.05) : Brand.paper,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? Brand.blue : Brand.fill,
+            width: 1.5,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Brand.fill,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Ico(ride.icon, size: 26, color: selected ? Brand.blue : Brand.sub),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(ride.name, style: tw(FontWeight.w900, 15)),
+                      const SizedBox(width: 6),
+                      Text('· ${ride.formattedEta}', style: tw(FontWeight.w700, 11, Brand.sub)),
+                    ],
+                  ),
+                  Text(ride.description, style: tw(FontWeight.w600, 12, Brand.sub)),
+                ],
+              ),
+            ),
+            Text(ride.formattedPrice, style: tw(FontWeight.w900, 15)),
+          ],
+        ),
+      ),
+    );
+  }
+}
