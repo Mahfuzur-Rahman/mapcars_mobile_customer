@@ -1,8 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Current-location on the map. COARSE is a fallback when the user grants
+         approximate-only location on Android 12+. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <!-- Push notifications (FCM) — required for the runtime prompt on Android 13+. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="mapcars_mobile"
+        android:label="Mapcars"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Google Maps SDK for Android key. Value comes from
+             android/local.properties (MAPS_API_KEY), injected by build.gradle.kts
+             so the key is never committed. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${MAPS_API_KEY}"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"

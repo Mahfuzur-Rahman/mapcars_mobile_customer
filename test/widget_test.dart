@@ -34,6 +34,35 @@ void main() {
       expect(decoded.isPhoneVerified, isTrue);
     });
 
+    test('carries the refresh token through a round-trip', () {
+      // The refresh token is what keeps the user signed in past the access
+      // token's one-hour life, so losing it in storage would silently restore
+      // the old "log in every hour" behaviour.
+      final withRefresh = AuthSession(
+        token: 'jwt-123',
+        refreshToken: 'refresh-abc',
+        expiresAt: DateTime.utc(2030, 1, 1, 12),
+        userId: 'u',
+        isProfileComplete: false,
+        isEmailVerified: false,
+        isPhoneVerified: false,
+      );
+
+      expect(AuthSession.decode(withRefresh.encode()).refreshToken, 'refresh-abc');
+    });
+
+    test('tolerates a session persisted before refresh tokens existed', () {
+      // Sessions already on disk have no refreshToken key. Decoding must not
+      // throw - it should just yield null and let the normal expiry path run.
+      const legacy = '{"token":"t","expiresAt":"2030-01-01T12:00:00.000Z",'
+          '"userId":"u","isProfileComplete":false,"isEmailVerified":false,'
+          '"isPhoneVerified":false}';
+
+      final decoded = AuthSession.decode(legacy);
+      expect(decoded.refreshToken, isNull);
+      expect(decoded.token, 't');
+    });
+
     test('isExpired reflects the expiry timestamp', () {
       final past = AuthSession(
         token: 't',
@@ -58,6 +87,21 @@ void main() {
   });
 
   group('AuthState', () {
+
+    test('keeps the refresh token across fromSession / toSession', () {
+      final session = AuthSession(
+        token: 'jwt',
+        refreshToken: 'refresh-xyz',
+        expiresAt: DateTime.utc(2030, 6, 1),
+        userId: 'u',
+        isProfileComplete: false,
+        isEmailVerified: false,
+        isPhoneVerified: false,
+      );
+
+      expect(AuthState.fromSession(session).refreshToken, 'refresh-xyz');
+      expect(AuthState.fromSession(session).toSession()?.refreshToken, 'refresh-xyz');
+    });
     test('toSession returns null when not authenticated', () {
       expect(const AuthState().toSession(), isNull);
     });

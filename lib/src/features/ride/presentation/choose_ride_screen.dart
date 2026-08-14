@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
 import '../../../core/widgets/map_background.dart';
 import '../models/ride_option.dart';
 import '../models/ride_quote.dart';
+import '../providers/fare_chart_provider.dart';
 import '../providers/ride_flow_notifier.dart';
 
 class ChooseRideScreen extends ConsumerStatefulWidget {
@@ -36,7 +38,8 @@ class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
           Positioned(
             top: 58,
             left: 16,
-            child: McCircleButton('back', onTap: () => context.pop()),
+            right: 16,
+            child: McFloatingNav(onBack: () => backOr(context, '/set-route')),
           ),
           Align(
             alignment: Alignment.bottomCenter,
@@ -57,8 +60,10 @@ class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
                       Text('Could not price this trip.',
                           style: tw(FontWeight.w700, 14, Brand.sub)),
                       const SizedBox(height: 10),
-                      McGhostButton('Retry',
-                          onTap: () => ref.invalidate(rideQuoteProvider)),
+                      McGhostButton('Retry', onTap: () {
+                        ref.invalidate(fareChartProvider);
+                        ref.invalidate(rideQuoteProvider);
+                      }),
                     ],
                   ),
                 ),
@@ -68,7 +73,7 @@ class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
                   onSelect: (i) => setState(() => _selected = i),
                   onConfirm: (option) {
                     ref.read(rideFlowProvider.notifier).selectOption(option.id);
-                    context.go('/confirm');
+                    context.push('/confirm');
                   },
                 ),
               ),
@@ -154,21 +159,30 @@ class _RideRow extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? Brand.blue.withValues(alpha: 0.05) : Brand.paper,
-          borderRadius: BorderRadius.circular(14),
+          color: selected ? Brand.blue.withValues(alpha: 0.07) : Brand.paper,
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? Brand.blue : Brand.fill,
-            width: 1.5,
+            color: selected ? Brand.blue : Brand.line.withValues(alpha: 0.6),
+            width: selected ? 2.0 : 1.0,
           ),
+          boxShadow: selected
+              ? [
+                  BoxShadow(
+                    color: Brand.blue.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ]
+              : Brand.cardShadow,
         ),
         child: Row(
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: Brand.fill,
-                borderRadius: BorderRadius.circular(12),
+                color: selected ? Brand.blue.withValues(alpha: 0.12) : Brand.fill,
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
                 child: Ico(ride.icon, size: 26, color: selected ? Brand.blue : Brand.sub),
@@ -181,16 +195,26 @@ class _RideRow extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(ride.name, style: tw(FontWeight.w900, 15)),
+                      Text(ride.name, style: tw(FontWeight.w900, 15.5)),
                       const SizedBox(width: 6),
-                      Text('· ${ride.formattedEta}', style: tw(FontWeight.w700, 11, Brand.sub)),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Brand.blue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(ride.formattedEta,
+                            style: tw(FontWeight.w800, 11, Brand.blue)),
+                      ),
                     ],
                   ),
+                  const SizedBox(height: 2),
                   Text(ride.description, style: tw(FontWeight.w600, 12, Brand.sub)),
                 ],
               ),
             ),
-            Text(ride.formattedPrice, style: tw(FontWeight.w900, 15)),
+            const SizedBox(width: 8),
+            Text(ride.formattedPrice, style: tw(FontWeight.w900, 16, selected ? Brand.blue : Brand.ink)),
           ],
         ),
       ),

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
 
@@ -37,7 +38,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              McCircleButton('back', onTap: () => context.pop()),
+              const McNavHeader(fallback: '/phone', showMenu: false),
               const SizedBox(height: 22),
               const McTitle('Enter the code', size: 26),
               const SizedBox(height: 10),
@@ -48,7 +49,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                   children: [
                     WidgetSpan(
                       child: GestureDetector(
-                        onTap: () => context.pop(),
+                        onTap: () => backOr(context, '/phone'),
                         child: Text('Edit', style: tw(FontWeight.w800, 15, Brand.blue)),
                       ),
                     ),
@@ -69,17 +70,17 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF8E1),
+                    color: const Color(0xFFFCF3D5),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFFFE082)),
+                    border: Border.all(color: const Color(0xFFEECB5F)),
                   ),
                   child: Row(
                     children: [
-                      const Ico('phone', size: 16, color: Color(0xFFF9A825)),
+                      const Ico('phone', size: 16, color: Color(0xFFB07310)),
                       const SizedBox(width: 8),
                       Text(
                         'Dev OTP: ${auth.devOtpCode}',
-                        style: tw(FontWeight.w700, 14, const Color(0xFFF9A825)),
+                        style: tw(FontWeight.w700, 14, const Color(0xFFB07310)),
                       ),
                     ],
                   ),

@@ -1,6 +1,6 @@
 {
-    "name": "mapcars_mobile",
-    "short_name": "mapcars_mobile",
+    "name": "Mapcars",
+    "short_name": "Mapcars",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

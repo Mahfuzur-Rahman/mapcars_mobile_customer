@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/mc.dart';
+import '../../ride/models/trip.dart';
+import '../../ride/models/trip_status.dart';
+import '../../ride/services/ride_service.dart';
 
-class HistoryScreen extends StatelessWidget {
+/// The rider's real trip history (`GET /trips` via [tripHistoryProvider]).
+/// Tapping a completed trip opens its receipt.
+class HistoryScreen extends ConsumerWidget {
   const HistoryScreen({super.key});
 
-  static const _trips = [
-    ('Tower Bridge, SE1', 'Today · 4:38 PM', '£8.01', 'Economy', true),
-    ('Heathrow Terminal 5', 'Yesterday · 9:12 AM', '£42.60', 'XL', true),
-    ('Borough Market', 'Mon · 1:05 PM', '£6.20', 'Economy', true),
-    ('Shoreditch High St', 'Sun · 11:48 PM', '£14.90', 'Comfort', false),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trips = ref.watch(tripHistoryProvider);
+
     return Scaffold(
       backgroundColor: Brand.bg,
       bottomNavigationBar: const _CustomerTabBar(active: 'activity'),
@@ -25,80 +27,156 @@ class HistoryScreen extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
-              child: McTitle('Your trips', size: 26),
+              child: McNavHeader(title: 'Your trips', fallback: '/home'),
             ),
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-                itemCount: _trips.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) {
-                  final (dest, whenText, fare, type, rated) = _trips[i];
-                  return GestureDetector(
-                    onTap: () => context.push('/receipt'),
-                    child: McCard(
-                      padding: 14,
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 46,
-                            height: 46,
-                            decoration: BoxDecoration(
-                              color: Brand.fill,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Center(child: Ico('car', size: 24, color: Brand.sub)),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(dest,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: tw(FontWeight.w900, 15)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(fare, style: tw(FontWeight.w900, 15)),
-                                  ],
-                                ),
-                                const SizedBox(height: 3),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text('$whenText · $type',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: tw(FontWeight.w600, 12.5, Brand.sub)),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    if (rated)
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Ico('starF', size: 13, color: Brand.star),
-                                          const SizedBox(width: 3),
-                                          Text('Rated', style: tw(FontWeight.w800, 12, Brand.sub)),
-                                        ],
-                                      )
-                                    else
-                                      Text('Rate now', style: tw(FontWeight.w800, 12, Brand.blue)),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
+              child: trips.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (_, __) => _Message(
+                  icon: 'alert',
+                  title: "Couldn't load your trips",
+                  sub: 'Pull to refresh or try again in a moment.',
+                  onRetry: () => ref.invalidate(tripHistoryProvider),
+                ),
+                data: (list) {
+                  if (list.isEmpty) {
+                    return const _Message(
+                      icon: 'car',
+                      title: 'No trips yet',
+                      sub: 'Your completed rides will show up here.',
+                    );
+                  }
+                  return RefreshIndicator(
+                    onRefresh: () async => ref.invalidate(tripHistoryProvider),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                      itemCount: list.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) => _TripRow(trip: list[i]),
                     ),
                   );
                 },
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TripRow extends StatelessWidget {
+  const _TripRow({required this.trip});
+  final Trip trip;
+
+  @override
+  Widget build(BuildContext context) {
+    final completed = trip.status == TripStatus.completed;
+    final when =
+        trip.createdAt != null ? formatRelativeDateTime(trip.createdAt!) : '';
+    final sub = [when, trip.tierLabel].where((s) => s.isNotEmpty).join(' · ');
+
+    final (statusText, statusColor) = switch (trip.status) {
+      TripStatus.completed => (trip.paymentMethodLabel, Brand.sub),
+      TripStatus.cancelledByRider ||
+      TripStatus.cancelledByDriver =>
+        ('Cancelled', Brand.sub),
+      _ => ('In progress', Brand.blue),
+    };
+
+    return GestureDetector(
+      onTap: completed ? () => context.push('/receipt', extra: trip) : null,
+      child: McCard(
+        padding: 14,
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Brand.fill,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Center(child: Ico('car', size: 24, color: Brand.sub)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          trip.dropoff.label.isNotEmpty
+                              ? trip.dropoff.label
+                              : 'Trip',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tw(FontWeight.w900, 15),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        completed ? (trip.formattedTotal ?? '—') : '',
+                        style: tw(FontWeight.w900, 15),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 3),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(sub,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: tw(FontWeight.w600, 12.5, Brand.sub)),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(statusText, style: tw(FontWeight.w800, 12, statusColor)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Message extends StatelessWidget {
+  const _Message({
+    required this.icon,
+    required this.title,
+    required this.sub,
+    this.onRetry,
+  });
+  final String icon;
+  final String title;
+  final String sub;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Ico(icon, size: 40, color: Brand.faint),
+            const SizedBox(height: 12),
+            Text(title, style: tw(FontWeight.w900, 17)),
+            const SizedBox(height: 6),
+            Text(sub,
+                textAlign: TextAlign.center,
+                style: tw(FontWeight.w600, 13, Brand.sub)),
+            if (onRetry != null) ...[
+              const SizedBox(height: 16),
+              McGhostButton('Try again', icon: 'nav', height: 44, onTap: onRetry),
+            ],
           ],
         ),
       ),

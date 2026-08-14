@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../models/chat_message.dart';
 import '../models/driver_info.dart';
+import '../models/driver_location.dart';
 import '../models/place.dart';
 import '../models/ride_option.dart';
 import '../models/ride_quote.dart';
@@ -21,15 +23,29 @@ abstract class RideRepository {
     required Place pickup,
     required Place dropoff,
     required String rideOptionId,
+    required double distanceMiles,
+    required int durationMinutes,
     String? promoCode,
+    String? paymentMethod,
     String? paymentMethodId,
+    double tipAmount,
   });
 
   Future<Trip> getTrip(String id);
 
-  Future<Trip> cancelTrip(String id);
+  /// The assigned driver's last known position, or null if there's nothing to
+  /// show yet. Seeds the tracking map before the realtime pushes take over.
+  Future<DriverLocation?> driverLocation(String tripId);
+
+  Future<Trip> cancelTrip(String id, {String? reason});
 
   Future<List<Trip>> tripHistory();
+
+  Future<void> submitRating(String tripId, {required int score, String? comment});
+
+  Future<List<ChatMessage>> getMessages(String tripId);
+
+  Future<ChatMessage> sendMessage(String tripId, {required String content});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -58,9 +74,19 @@ class DioRideRepository implements RideRepository {
   @override
   Future<RideQuote> quote({required Place pickup, required Place dropoff}) =>
       apiCall(() async {
+        // Server-side quote (secondary path — the app normally prices locally
+        // from the fare chart via rideQuoteProvider). Distance 0 lets the API
+        // estimate from the straight-line distance.
         final res = await _dio.post<Map<String, dynamic>>(
           '$_base/quote',
-          data: {'pickup': pickup.toJson(), 'dropoff': dropoff.toJson()},
+          data: {
+            'pickupLat': pickup.lat,
+            'pickupLng': pickup.lng,
+            'dropoffLat': dropoff.lat,
+            'dropoffLng': dropoff.lng,
+            'distanceMiles': 0,
+            'durationMinutes': 0,
+          },
         );
         return RideQuote.fromJson(res.data!);
       });
@@ -70,18 +96,32 @@ class DioRideRepository implements RideRepository {
     required Place pickup,
     required Place dropoff,
     required String rideOptionId,
+    required double distanceMiles,
+    required int durationMinutes,
     String? promoCode,
+    String? paymentMethod,
     String? paymentMethodId,
+    double tipAmount = 0,
   }) =>
       apiCall(() async {
         final res = await _dio.post<Map<String, dynamic>>(
           _base,
           data: {
-            'pickup': pickup.toJson(),
-            'dropoff': dropoff.toJson(),
+            'pickupAddress':
+                pickup.address.isNotEmpty ? pickup.address : pickup.label,
+            'pickupLat': pickup.lat,
+            'pickupLng': pickup.lng,
+            'dropoffAddress':
+                dropoff.address.isNotEmpty ? dropoff.address : dropoff.label,
+            'dropoffLat': dropoff.lat,
+            'dropoffLng': dropoff.lng,
             'rideOptionId': rideOptionId,
+            'distanceMiles': distanceMiles,
+            'durationMinutes': durationMinutes,
             if (promoCode != null) 'promoCode': promoCode,
+            if (paymentMethod != null) 'paymentMethod': paymentMethod,
             if (paymentMethodId != null) 'paymentMethodId': paymentMethodId,
+            'tipAmount': tipAmount,
           },
         );
         return Trip.fromJson(res.data!);
@@ -94,8 +134,25 @@ class DioRideRepository implements RideRepository {
       });
 
   @override
-  Future<Trip> cancelTrip(String id) => apiCall(() async {
-        final res = await _dio.post<Map<String, dynamic>>('$_base/$id/cancel');
+  Future<DriverLocation?> driverLocation(String tripId) => apiCall(() async {
+        final res = await _dio.get<Map<String, dynamic>>(
+          '$_base/$tripId/driver-location',
+        );
+        // 204 when there's nothing to report — no driver assigned yet, the trip
+        // is over, or the driver isn't currently reporting a position.
+        final data = res.data;
+        if (data == null || data.isEmpty) return null;
+        return DriverLocation.fromJson(data);
+      });
+
+  @override
+  Future<Trip> cancelTrip(String id, {String? reason}) => apiCall(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '$_base/$id/cancel',
+          data: {
+            if (reason != null && reason.isNotEmpty) 'reason': reason,
+          },
+        );
         return Trip.fromJson(res.data!);
       });
 
@@ -105,6 +162,37 @@ class DioRideRepository implements RideRepository {
         return (res.data ?? [])
             .map((e) => Trip.fromJson(e as Map<String, dynamic>))
             .toList(growable: false);
+      });
+
+  @override
+  Future<void> submitRating(String tripId, {required int score, String? comment}) =>
+      apiCall(() async {
+        await _dio.post<Map<String, dynamic>>(
+          '$_base/$tripId/ratings',
+          data: {
+            'score': score,
+            if (comment != null && comment.isNotEmpty) 'comment': comment,
+          },
+        );
+      });
+
+  @override
+  Future<List<ChatMessage>> getMessages(String tripId) =>
+      apiCall(() async {
+        final res = await _dio.get<List<dynamic>>('$_base/$tripId/messages');
+        return (res.data ?? [])
+            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
+            .toList();
+      });
+
+  @override
+  Future<ChatMessage> sendMessage(String tripId, {required String content}) =>
+      apiCall(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '$_base/$tripId/messages',
+          data: {'content': content},
+        );
+        return ChatMessage.fromJson(res.data!);
       });
 }
 
@@ -156,8 +244,12 @@ class MockRideRepository implements RideRepository {
     required Place pickup,
     required Place dropoff,
     required String rideOptionId,
+    required double distanceMiles,
+    required int durationMinutes,
     String? promoCode,
+    String? paymentMethod,
     String? paymentMethodId,
+    double tipAmount = 0,
   }) async {
     await Future<void>.delayed(_delay);
     return Trip(
@@ -194,13 +286,47 @@ class MockRideRepository implements RideRepository {
   }
 
   @override
-  Future<Trip> cancelTrip(String id) async {
+  Future<DriverLocation?> driverLocation(String tripId) async {
     await Future<void>.delayed(_delay);
+    // A fixed point just north-east of `_defaultPickup` — enough for the
+    // tracking screen to render a car without a live driver.
+    return const DriverLocation(lat: 51.5094, lng: -0.0205, heading: 210);
+  }
+
+  @override
+  Future<Trip> cancelTrip(String id, {String? reason}) async {
+    await Future<void>.delayed(_delay);
+    // Mock has no backing store — the reason is accepted (mirroring the real
+    // API contract) but there's nothing to persist it against.
     return Trip(
       id: id,
       status: TripStatus.cancelledByRider,
       pickup: _defaultPickup,
       dropoff: _places.first,
+    );
+  }
+
+  @override
+  Future<void> submitRating(String tripId, {required int score, String? comment}) async {
+    await Future<void>.delayed(_delay);
+  }
+
+  @override
+  Future<List<ChatMessage>> getMessages(String tripId) async {
+    await Future<void>.delayed(_delay);
+    return [];
+  }
+
+  @override
+  Future<ChatMessage> sendMessage(String tripId, {required String content}) async {
+    await Future<void>.delayed(_delay);
+    return ChatMessage(
+      id: 'mock-msg-${DateTime.now().millisecondsSinceEpoch}',
+      tripId: tripId,
+      senderType: 'rider',
+      senderId: 'mock-rider',
+      content: content,
+      sentAtUtc: DateTime.now().toUtc(),
     );
   }
 
@@ -220,8 +346,17 @@ class MockRideRepository implements RideRepository {
   }
 }
 
-/// Swap to `DioRideRepository(ref.watch(dioProvider))` once the trips endpoints
-/// ship. Everything above this line (models, providers, screens) stays the same.
+/// Real, API-backed booking. (Was `MockRideRepository` during the prototype;
+/// flipped now that the trips endpoints are live and dispatch is wired.)
 final rideRepositoryProvider = Provider<RideRepository>(
-  (ref) => MockRideRepository(),
+  (ref) => DioRideRepository(ref.watch(dioProvider)),
 );
+
+/// The signed-in rider's past trips (`GET /trips`), most recent first — backs
+/// the Activity/history screen.
+final tripHistoryProvider = FutureProvider.autoDispose<List<Trip>>((ref) async {
+  final trips = await ref.watch(rideRepositoryProvider).tripHistory();
+  trips.sort((a, b) =>
+      (b.createdAt ?? DateTime(0)).compareTo(a.createdAt ?? DateTime(0)));
+  return trips;
+});

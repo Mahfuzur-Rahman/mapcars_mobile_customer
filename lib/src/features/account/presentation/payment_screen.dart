@@ -15,7 +15,7 @@ class PaymentScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const McTitle('Payment', size: 26),
+              const McNavHeader(title: 'Payment', fallback: '/account'),
               const SizedBox(height: 16),
               _sectionLabel('CARDS'),
               const SizedBox(height: 10),
@@ -38,7 +38,7 @@ class PaymentScreen extends StatelessWidget {
                 chipGradient: const LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF5B6370), Color(0xFF3A4250)],
+                  colors: [Color(0xFF3E4756), Color(0xFF1E2734)],
                 ),
                 isDefault: false,
               ),

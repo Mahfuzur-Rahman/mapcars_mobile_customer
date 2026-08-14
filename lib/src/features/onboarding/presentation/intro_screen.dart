@@ -94,7 +94,7 @@ class _IntroSlide extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Image.asset('assets/images/logo-full.png', height: 28),
+              Image.asset('assets/images/mapcars_logo1.png', height: 28),
               if (!last)
                 GestureDetector(
                   onTap: () => context.go('/phone'),
@@ -103,23 +103,31 @@ class _IntroSlide extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(22),
-            child: Container(
-              height: 268,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Brand.line),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                      height: 268,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: Brand.line),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: art,
+                    ),
+                  ),
+                  const SizedBox(height: 26),
+                  McTitle(title, size: 30),
+                  const SizedBox(height: 12),
+                  Text(body, style: tw(FontWeight.w600, 15, Brand.sub)),
+                ],
               ),
-              clipBehavior: Clip.antiAlias,
-              child: art,
             ),
           ),
-          const SizedBox(height: 26),
-          McTitle(title, size: 30),
-          const SizedBox(height: 12),
-          Text(body, style: tw(FontWeight.w600, 15, Brand.sub)),
-          const Spacer(),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(3, (i) {
@@ -143,23 +151,14 @@ class _IntroSlide extends StatelessWidget {
                 onTap: () => context.go('/phone'))
           else
             McButton('Next', icon: 'chevR', onTap: onNext),
-          const SizedBox(height: 16),
-          Center(
-            child: GestureDetector(
-              onTap: () => context.go('/phone'),
-              child: Text.rich(
-                TextSpan(
-                  text: 'Already have an account? ',
-                  style: tw(FontWeight.w700, 14, Brand.sub),
-                  children: [
-                    TextSpan(
-                      text: 'Log in',
-                      style: tw(FontWeight.w700, 14, Brand.blue),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          const SizedBox(height: 14),
+          const McDividerLabel('Already have an account?'),
+          const SizedBox(height: 12),
+          McButton(
+            'Sign in',
+            icon: 'lock',
+            kind: BtnKind.green,
+            onTap: () => context.go('/email-login'),
           ),
         ],
       ),
@@ -234,7 +233,7 @@ class _CardArt extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           transform: GradientRotation(150 * 3.1415926535 / 180),
-          colors: [Color(0xFFEAF6FB), Color(0xFFECF8E7)],
+          colors: [Color(0xFFD3E9F5), Color(0xFFD9EED0)],
         ),
       ),
       child: Center(
@@ -258,7 +257,7 @@ class _CardArt extends StatelessWidget {
                       border: Border.all(color: Brand.line),
                       boxShadow: const [
                         BoxShadow(
-                            color: Color(0x1F283443),
+                            color: Color(0x2916202E),
                             blurRadius: 24,
                             offset: Offset(0, 10)),
                       ],
@@ -281,14 +280,14 @@ class _CardArt extends StatelessWidget {
                       end: Alignment.bottomRight,
                       colors: [
                         Brand.blue,
-                        Color(0xFF2BB6C7),
+                        Color(0xFF12939F),
                         Brand.green,
                       ],
                       stops: [0.0, 0.6, 1.0],
                     ),
                     boxShadow: const [
                       BoxShadow(
-                          color: Color(0x4D16A0D9),
+                          color: Color(0x590B7DC0),
                           blurRadius: 30,
                           offset: Offset(0, 14)),
                     ],

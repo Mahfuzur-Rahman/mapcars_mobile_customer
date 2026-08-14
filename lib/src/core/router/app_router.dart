@@ -4,47 +4,70 @@ import 'package:go_router/go_router.dart';
 
 import '../config/app_config.dart';
 import '../network/api_client.dart';
+import '../network/error_reporter.dart';
 import '../widgets/screen_stepper.dart';
+import '../../features/account/presentation/change_password_screen.dart';
+import '../../features/account/presentation/edit_profile_screen.dart';
 import '../../features/account/presentation/history_screen.dart';
 import '../../features/account/presentation/payment_screen.dart';
 import '../../features/account/presentation/receipt_screen.dart';
+import '../../features/account/presentation/saved_places_screen.dart';
 import '../../features/account/presentation/settings_screen.dart';
 import '../../features/dev/presentation/screen_index.dart';
+import '../../features/onboarding/presentation/email_login_screen.dart';
+import '../../features/onboarding/presentation/email_signup_screen.dart';
+import '../../features/onboarding/presentation/email_verify_screen.dart';
 import '../../features/onboarding/presentation/intro_screen.dart';
 import '../../features/onboarding/presentation/otp_screen.dart';
 import '../../features/onboarding/presentation/phone_screen.dart';
 import '../../features/onboarding/presentation/profile_setup_screen.dart';
 import '../../features/onboarding/presentation/splash_screen.dart';
+import '../../features/ride/presentation/chat_screen.dart';
 import '../../features/ride/presentation/choose_ride_screen.dart';
 import '../../features/ride/presentation/confirm_screen.dart';
 import '../../features/ride/presentation/completed_screen.dart';
 import '../../features/ride/presentation/home_screen.dart';
+import '../../features/ride/models/place.dart';
+import '../../features/ride/models/trip.dart';
 import '../../features/ride/presentation/in_progress_screen.dart';
 import '../../features/ride/presentation/rate_screen.dart';
+import '../../features/ride/presentation/route_preview_screen.dart';
 import '../../features/ride/presentation/searching_screen.dart';
 import '../../features/ride/presentation/set_route_screen.dart';
 import '../../features/ride/presentation/tracking_screen.dart';
 
-/// Ordered walk-through used by the floating Next/Prev stepper.
+/// Ordered walk-through used by the floating hamburger menu drawer.
+///
+/// Entries carrying an `icon` are the real user-facing menu: they are the only
+/// ones the drawer shows outside dev builds. Everything else is a prototype
+/// step — a rider must not be able to jump into `/searching` from a menu.
 const List<StepRoute> kCustomerFlow = [
-  StepRoute('/', 'Splash'),
-  StepRoute('/intro', 'Intro'),
-  StepRoute('/phone', 'Phone number'),
-  StepRoute('/otp', 'OTP'),
-  StepRoute('/profile-setup', 'Profile setup'),
-  StepRoute('/home', 'Home'),
-  StepRoute('/set-route', 'Set route'),
-  StepRoute('/choose-ride', 'Choose ride'),
-  StepRoute('/confirm', 'Confirm'),
-  StepRoute('/searching', 'Searching'),
-  StepRoute('/tracking', 'Tracking'),
-  StepRoute('/in-progress', 'In progress'),
-  StepRoute('/completed', 'Completed'),
-  StepRoute('/rate', 'Rate + tip'),
-  StepRoute('/activity', 'Trip history'),
-  StepRoute('/receipt', 'Receipt'),
-  StepRoute('/payment', 'Payment'),
-  StepRoute('/account', 'Account'),
+  StepRoute('/', 'Splash', category: 'Onboarding'),
+  StepRoute('/intro', 'Intro', category: 'Onboarding'),
+  StepRoute('/phone', 'Phone number', category: 'Onboarding'),
+  StepRoute('/otp', 'OTP', category: 'Onboarding'),
+  StepRoute('/email-login', 'Email log in', category: 'Onboarding'),
+  StepRoute('/email-signup', 'Sign up', category: 'Onboarding'),
+  StepRoute('/verify-email', 'Email verify', category: 'Onboarding'),
+  StepRoute('/profile-setup', 'Profile setup', category: 'Onboarding'),
+  StepRoute('/home', 'Home', category: 'Ride Flow', icon: 'home'),
+  StepRoute('/set-route', 'Set route', category: 'Ride Flow'),
+  StepRoute('/choose-ride', 'Choose ride', category: 'Ride Flow'),
+  StepRoute('/confirm', 'Confirm', category: 'Ride Flow'),
+  StepRoute('/searching', 'Searching', category: 'Ride Flow'),
+  StepRoute('/tracking', 'Tracking', category: 'Ride Flow'),
+  StepRoute('/chat', 'Chat', category: 'Ride Flow'),
+  StepRoute('/in-progress', 'In progress', category: 'Ride Flow'),
+  StepRoute('/completed', 'Completed', category: 'Ride Flow'),
+  StepRoute('/rate', 'Rate + tip', category: 'Ride Flow'),
+  StepRoute('/activity', 'Trip history', category: 'Account', icon: 'clock'),
+  StepRoute('/receipt', 'Receipt', category: 'Account'),
+  StepRoute('/payment', 'Payment', category: 'Account', icon: 'card'),
+  StepRoute('/account/saved-places', 'Saved places', category: 'Account', icon: 'heart'),
+  StepRoute('/account', 'Account', category: 'Account', icon: 'user'),
+  StepRoute('/account/edit', 'Edit profile', category: 'Account'),
+  StepRoute('/account/change-password', 'Change password', category: 'Account'),
+  StepRoute('/screens', 'All Screens Index', category: 'Dev Tools'),
 ];
 
 GoRoute _r(String path, Widget Function() b) =>
@@ -58,6 +81,9 @@ const _publicRoutes = {
   '/intro',
   '/phone',
   '/otp',
+  '/email-login',
+  '/email-signup',
+  '/verify-email',
   '/profile-setup',
   '/screens',
 };
@@ -86,19 +112,31 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: refresh,
     redirect: (context, state) {
-      // Keep the prototype walk-through fully open in local dev; enforce real
-      // auth gating only in staging/prod builds.
-      if (AppConfig.isDev) return null;
-
       final loggedIn = ref.read(authTokenProvider) != null;
       final path = state.uri.path;
 
+      // Remember where we are so a crash report names the screen it happened on.
+      ErrorReporter.currentRoute = path;
+
+      // Auth gating applies in every build. It used to be skipped in local dev
+      // for the prototype walk-through, which meant /home (and every other
+      // signed-in screen) was reachable without a session — including straight
+      // from the dev screen index.
       if (!loggedIn && !_publicRoutes.contains(path)) return '/intro';
-      if (loggedIn && (path == '/phone' || path == '/otp')) return '/home';
+
+      // The screen index is a prototype tool that links straight into signed-in
+      // screens — it only exists in local dev builds.
+      if (path == '/screens' && !AppConfig.isDev) return loggedIn ? '/home' : '/intro';
+      const authFunnel = {'/phone', '/otp', '/email-login', '/email-signup', '/verify-email'};
+      if (loggedIn && authFunnel.contains(path)) return '/home';
       return null;
     },
     routes: [
     ShellRoute(
+      // Always mounted. ScreenStepper itself decides between the dev
+      // walk-through and the plain user menu — gating the whole shell on
+      // showDevNav left the home screen's hamburger button dead in
+      // staging/prod builds.
       builder: (context, state, child) =>
           ScreenStepper(routes: kCustomerFlow, current: state.uri.path, child: child),
       routes: [
@@ -107,22 +145,40 @@ final routerProvider = Provider<GoRouter>((ref) {
         _r('/intro', () => const IntroScreen()),
         _r('/phone', () => const PhoneScreen()),
         _r('/otp', () => const OtpScreen()),
+        _r('/email-login', () => const EmailLoginScreen()),
+        _r('/email-signup', () => const EmailSignupScreen()),
+        _r('/verify-email', () => const EmailVerifyScreen()),
         _r('/profile-setup', () => const ProfileSetupScreen()),
         // Ride flow
         _r('/home', () => const HomeScreen()),
         _r('/set-route', () => const SetRouteScreen()),
+        GoRoute(
+          path: '/route-preview',
+          builder: (c, s) {
+            final dest = s.extra;
+            if (dest is! Place) return const SetRouteScreen();
+            return RoutePreviewScreen(destination: dest);
+          },
+        ),
         _r('/choose-ride', () => const ChooseRideScreen()),
         _r('/confirm', () => const ConfirmScreen()),
         _r('/searching', () => const SearchingScreen()),
         _r('/tracking', () => const TrackingScreen()),
+        _r('/chat', () => const ChatScreen()),
         _r('/in-progress', () => const InProgressScreen()),
         _r('/completed', () => const CompletedScreen()),
         _r('/rate', () => const RateScreen()),
         // Account
         _r('/activity', () => const HistoryScreen()),
-        _r('/receipt', () => const ReceiptScreen()),
+        GoRoute(
+          path: '/receipt',
+          builder: (c, s) => ReceiptScreen(trip: s.extra is Trip ? s.extra as Trip : null),
+        ),
         _r('/payment', () => const PaymentScreen()),
         _r('/account', () => const SettingsScreen()),
+        _r('/account/edit', () => const EditProfileScreen()),
+        _r('/account/change-password', () => const ChangePasswordScreen()),
+        _r('/account/saved-places', () => const SavedPlacesScreen()),
         // Prototype screen index
         _r('/screens', () => const ScreenIndexScreen()),
       ],

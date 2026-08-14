@@ -1,13 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/mc.dart';
+import '../providers/ride_flow_notifier.dart';
 
-class CompletedScreen extends StatelessWidget {
+class CompletedScreen extends ConsumerWidget {
   const CompletedScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final trip = ref.watch(rideFlowProvider).activeTrip;
+    final driverName = trip?.driver?.name ?? 'James';
+    final fare = trip?.formattedFare;
+
+    // Real payment state (cash today; card once Stripe lands).
+    final payIcon = (trip?.isCash ?? true) ? 'cash' : 'card';
+    final payLabel = trip?.paymentMethodLabel ?? 'Cash';
+    final payNote = trip == null
+        ? null
+        : (trip.isPaid ? 'Paid' : 'Due on arrival');
+
     return Scaffold(
       backgroundColor: Brand.bg,
       body: SafeArea(
@@ -16,6 +29,10 @@ class CompletedScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // End of the trip — nothing to go back to, but Home and the menu
+              // stay reachable.
+              const McNavHeader(showBack: false),
+              const SizedBox(height: 18),
               // Success header.
               Column(
                 children: [
@@ -26,7 +43,7 @@ class CompletedScreen extends StatelessWidget {
                       gradient: Brand.gradGreen,
                       shape: BoxShape.circle,
                       boxShadow: [
-                        BoxShadow(color: Color(0x594FBF3B), blurRadius: 20, offset: Offset(0, 8)),
+                        BoxShadow(color: Color(0x5F31A424), blurRadius: 20, offset: Offset(0, 8)),
                       ],
                     ),
                     child: const Center(child: Ico('check', size: 34, color: Colors.white)),
@@ -34,7 +51,7 @@ class CompletedScreen extends StatelessWidget {
                   const SizedBox(height: 10),
                   const McTitle("You've arrived", size: 23, align: TextAlign.center),
                   const SizedBox(height: 6),
-                  Text('Hope you enjoyed the ride with James',
+                  Text('Hope you enjoyed the ride with $driverName',
                       textAlign: TextAlign.center, style: tw(FontWeight.w600, 13.5, Brand.sub)),
                 ],
               ),
@@ -45,15 +62,19 @@ class CompletedScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const _FareRow('Economy fare', '£8.90'),
-                    const _FareRow('Promo SAVE10', '−£0.89', value: Brand.green),
-                    const _FareRow('Booking fee', '£0.00'),
+                    if (fare != null)
+                      _FareRow('Trip fare', fare)
+                    else ...[
+                      const _FareRow('Economy fare', '£8.90'),
+                      const _FareRow('Promo SAVE10', '−£0.89', value: Brand.green),
+                      const _FareRow('Booking fee', '£0.00'),
+                    ],
                     Container(height: 1, color: Brand.fill, margin: const EdgeInsets.symmetric(vertical: 8)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total paid', style: tw(FontWeight.w900, 16)),
-                        Text('£8.01', style: tw(FontWeight.w900, 20)),
+                        Text(fare ?? '£8.01', style: tw(FontWeight.w900, 20)),
                       ],
                     ),
                     Container(
@@ -64,9 +85,15 @@ class CompletedScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          const Ico('card', size: 18, color: Brand.sub),
+                          Ico(payIcon, size: 18, color: Brand.sub),
                           const SizedBox(width: 8),
-                          Text('Visa •••• 4242', style: tw(FontWeight.w700, 13, Brand.sub)),
+                          Text(payLabel, style: tw(FontWeight.w700, 13, Brand.sub)),
+                          if (payNote != null) ...[
+                            const Spacer(),
+                            Text(payNote,
+                                style: tw(FontWeight.w800, 12,
+                                    trip!.isPaid ? Brand.green : Brand.sub)),
+                          ],
                         ],
                       ),
                     ),
@@ -74,11 +101,20 @@ class CompletedScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              const Row(
+              Row(
                 children: [
-                  Expanded(child: McGhostButton('Receipt', icon: 'receipt', height: 48)),
-                  SizedBox(width: 10),
-                  Expanded(child: McGhostButton('Get help', icon: 'msg', height: 48)),
+                  Expanded(
+                    child: McGhostButton(
+                      'Receipt',
+                      icon: 'receipt',
+                      height: 48,
+                      onTap: trip != null
+                          ? () => context.push('/receipt', extra: trip)
+                          : null,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(child: McGhostButton('Get help', icon: 'msg', height: 48)),
                 ],
               ),
               const SizedBox(height: 18),

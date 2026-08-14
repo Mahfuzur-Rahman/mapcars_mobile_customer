@@ -1,4 +1,4 @@
-package com.mapcars.mapcars_mobile
+package com.mapcars.mapcars.user
 
 import io.flutter.embedding.android.FlutterActivity
 

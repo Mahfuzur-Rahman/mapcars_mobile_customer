@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
 
@@ -41,11 +42,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               end: Alignment.bottomRight,
               transform: GradientRotation(158 * 3.1415926535 / 180),
               colors: [
-                Color(0xFFBBE6F6),
-                Color(0xFFE7F6FB),
-                Color(0xFFFFFFFF),
-                Color(0xFFECF8E7),
-                Color(0xFFC6ECBC),
+                Color(0xFF9CD3EE),
+                Color(0xFFD8EDF8),
+                Color(0xFFF7FAFC),
+                Color(0xFFDCEFD3),
+                Color(0xFFACDC99),
               ],
               stops: [0.0, 0.26, 0.50, 0.74, 1.0],
             ),
@@ -62,7 +63,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
-                      colors: [Color(0x4D16A0D9), Color(0x0016A0D9)],
+                      colors: [Color(0x590B7DC0), Color(0x000B7DC0)],
                       stops: [0.0, 0.7],
                     ),
                   ),
@@ -77,7 +78,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   decoration: const BoxDecoration(
                     shape: BoxShape.circle,
                     gradient: RadialGradient(
-                      colors: [Color(0x474FBF3B), Color(0x004FBF3B)],
+                      colors: [Color(0x5231A424), Color(0x0031A424)],
                       stops: [0.0, 0.7],
                     ),
                   ),
@@ -87,10 +88,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Image.asset('assets/images/logo-full.png', height: 140),
+                    Image.asset('assets/images/mapcars_logo1.png', height: 180),
                     const SizedBox(height: 22),
                     Text(
-                      'YOUR CITY, MOVING',
+                      'RIDE SHARING MADE EASY',
                       style: tw(FontWeight.w800, 15, Brand.sub, 3),
                     ),
                   ],
@@ -111,20 +112,23 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   ),
                 ),
               ),
-              Positioned(
-                bottom: 8,
-                left: 0,
-                right: 0,
-                child: Center(
-                  child: TextButton(
-                    onPressed: () => context.push('/screens'),
-                    child: Text(
-                      'Browse all screens',
-                      style: tw(FontWeight.w700, 13, Brand.sub),
+              // Dev-only shortcut into the screen index. It jumps straight to
+              // signed-in screens, so it must never ship in a real build.
+              if (AppConfig.showDevNav)
+                Positioned(
+                  bottom: 8,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: TextButton(
+                      onPressed: () => context.push('/screens'),
+                      child: Text(
+                        'Browse all screens',
+                        style: tw(FontWeight.w700, 13, Brand.sub),
+                      ),
                     ),
                   ),
                 ),
-              ),
             ],
           ),
         ),

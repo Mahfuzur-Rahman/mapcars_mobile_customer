@@ -1,20 +1,64 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/mc.dart';
+import '../providers/ride_flow_notifier.dart';
 
-class RateScreen extends StatefulWidget {
+class RateScreen extends ConsumerStatefulWidget {
   const RateScreen({super.key});
 
   @override
-  State<RateScreen> createState() => _RateScreenState();
+  ConsumerState<RateScreen> createState() => _RateScreenState();
 }
 
-class _RateScreenState extends State<RateScreen> {
+class _RateScreenState extends ConsumerState<RateScreen> {
   int _rating = 4;
   int _tip = 1; // index into _tips; default selects £2 (green).
+  final _commentController = TextEditingController();
+  bool _submitting = false;
+  String? _error;
 
   static const List<String> _tips = ['£1', '£2', '£5', 'Other'];
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final tripId = ref.read(rideFlowProvider).activeTrip?.id;
+    if (tripId == null) {
+      // Reached without an active trip (e.g. via the dev stepper) — nothing
+      // to rate, so just carry on home.
+      context.go('/home');
+      return;
+    }
+
+    setState(() {
+      _submitting = true;
+      _error = null;
+    });
+
+    final comment = _commentController.text.trim();
+    final ok = await ref.read(rideFlowProvider.notifier).submitRating(
+          tripId,
+          score: _rating,
+          comment: comment.isEmpty ? null : comment,
+        );
+
+    if (!mounted) return;
+    if (!ok) {
+      setState(() {
+        _submitting = false;
+        _error = ref.read(rideFlowProvider).error ?? 'Could not submit your rating.';
+      });
+      return;
+    }
+
+    context.go('/home');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,6 +70,8 @@ class _RateScreenState extends State<RateScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const McNavHeader(showBack: false),
+              const SizedBox(height: 14),
               const McTitle('Rate your driver', size: 23, align: TextAlign.center),
               const SizedBox(height: 18),
               Column(
@@ -98,13 +144,22 @@ class _RateScreenState extends State<RateScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              const McField(icon: 'edit', placeholder: 'Leave a compliment…'),
+              McField(
+                icon: 'edit',
+                placeholder: 'Leave a compliment…',
+                editable: true,
+                controller: _commentController,
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: 12),
+                Text(_error!, style: tw(FontWeight.w600, 13, Colors.red)),
+              ],
               const SizedBox(height: 18),
               McButton(
-                'Submit · £2.00 tip',
+                _submitting ? 'Submitting…' : 'Submit · £2.00 tip',
                 icon: 'check',
                 kind: BtnKind.green,
-                onTap: () => context.go('/home'),
+                onTap: _submitting ? null : _submit,
               ),
             ],
           ),
