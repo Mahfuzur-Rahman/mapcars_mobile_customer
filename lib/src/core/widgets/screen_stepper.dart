@@ -4,18 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../config/app_config.dart';
 import '../../features/auth/providers/auth_notifier.dart';
-import '../../features/ride/demo_trip.dart';
-import '../../features/ride/providers/ride_flow_notifier.dart';
 import 'mc.dart';
 
 // Re-exported so the many screens that already import this file for
 // `devDrawerOpenProvider` keep working.
 export 'drawer_state.dart';
-
-/// Routes whose real map only renders once a trip is active — seed the demo
-/// trip before opening these so the walkthrough preview matches production
-/// instead of falling back to static art.
-const _routesNeedingDemoTrip = {'/searching', '/in-progress', '/chat'};
 
 /// One destination in the drawer.
 ///
@@ -289,9 +282,9 @@ class _ScreenStepperState extends ConsumerState<ScreenStepper> {
         child: InkWell(
           onTap: () {
             _close();
-            if (_routesNeedingDemoTrip.contains(item.path)) {
-              ref.read(rideFlowProvider.notifier).previewDemoTrip(demoTrip);
-            }
+            // No demo trip is seeded any more: the ride screens resolve the
+            // rider's own trip (see `RideGate`). Seeding one is why every step
+            // of the walk-through showed the same invented driver and fare.
             context.go(item.path);
           },
           child: Padding(

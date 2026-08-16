@@ -7,6 +7,7 @@ import '../../../core/widgets/mc.dart';
 import '../../../core/widgets/current_location_map.dart';
 import '../models/trip_status.dart';
 import '../providers/ride_flow_notifier.dart';
+import '../providers/search_history_provider.dart';
 import '../services/live_nearby_cars.dart';
 import '../services/nearby_drivers_service.dart';
 import '../services/saved_places_service.dart';
@@ -126,6 +127,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       final saved = ref.watch(savedPlacesNotifierProvider);
                       final homePlace = saved.home;
                       final workPlace = saved.work;
+                      final recents = ref.watch(searchHistoryProvider);
+                      final recentPlace = recents.isNotEmpty ? recents.first : null;
 
                       return Column(
                         children: [
@@ -154,7 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                     ? workPlace.address
                                     : workPlace.label)
                                 : 'Set work address',
-                            divider: true,
+                            divider: recentPlace != null,
                             onTap: () {
                               if (workPlace != null) {
                                 context.push('/route-preview', extra: workPlace);
@@ -163,16 +166,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               }
                             },
                           ),
+                          if (recentPlace != null)
+                            _SavedRow(
+                              icon: 'clock',
+                              title: recentPlace.label,
+                              sub: recentPlace.address.isNotEmpty
+                                  ? recentPlace.address
+                                  : 'Recent destination',
+                              divider: false,
+                              onTap: () =>
+                                  context.push('/route-preview', extra: recentPlace),
+                            ),
                         ],
                       );
                     },
-                  ),
-                  _SavedRow(
-                    icon: 'clock',
-                    title: 'Aldgate Station',
-                    sub: 'Recent · 2.1 mi',
-                    divider: false,
-                    onTap: () => context.push('/set-route'),
                   ),
                 ],
               ),

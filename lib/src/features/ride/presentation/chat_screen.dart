@@ -6,16 +6,19 @@ import 'package:intl/intl.dart';
 import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
 import '../models/chat_message.dart';
+import '../models/trip.dart';
 import '../providers/ride_flow_notifier.dart';
 
 /// In-trip chat with the assigned driver.
 ///
-/// Reads [rideFlowProvider] for the active trip and driver name — no route
-/// `extra` needed (same pattern as `tracking_screen.dart`). Messages are
-/// fetched from `GET /trips/{id}/messages` on mount, sent via POST, and
-/// received live via the existing `messageReceived` SignalR push.
+/// The trip comes from `RideGate` (same pattern as `tracking_screen.dart`).
+/// Messages are fetched from `GET /trips/{id}/messages` on mount, sent via
+/// POST, and received live via the existing `messageReceived` SignalR push.
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key});
+  const ChatScreen({super.key, required this.trip});
+
+  /// The ride being discussed — always a real one, supplied by `RideGate`.
+  final Trip trip;
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -60,15 +63,15 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final flow = ref.watch(rideFlowProvider);
-    final trip = flow.activeTrip;
-    final messages = flow.chatMessages;
+    final messages = ref.watch(rideFlowProvider.select((s) => s.chatMessages));
+    final driver = widget.trip.driver;
 
-    // Driver name / subtitle from the active trip.
-    final driverName = trip?.driver?.name ?? 'Driver';
-    final driverSub = trip?.driver != null
-        ? '${trip!.driver!.vehicle} · ${trip.driver!.plate}'
-        : '';
+    // Driver name / subtitle from the trip. A driver is only attached once one
+    // accepts, so these can legitimately be empty.
+    final driverName = driver?.name ?? 'Your driver';
+    final driverSub = driver == null
+        ? ''
+        : [driver.vehicle, driver.plate].where((s) => s.isNotEmpty).join(' · ');
 
     // Auto-scroll when new messages arrive.
     ref.listen<List<ChatMessage>>(

@@ -3,23 +3,26 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/mc.dart';
+import '../models/trip.dart';
 import '../providers/ride_flow_notifier.dart';
 
 class RateScreen extends ConsumerStatefulWidget {
-  const RateScreen({super.key});
+  const RateScreen({super.key, required this.trip});
+
+  /// The ride being rated — always a real one, supplied by `RideGate`.
+  final Trip trip;
 
   @override
   ConsumerState<RateScreen> createState() => _RateScreenState();
 }
 
 class _RateScreenState extends ConsumerState<RateScreen> {
-  int _rating = 4;
-  int _tip = 1; // index into _tips; default selects £2 (green).
+  /// No stars until the rider picks some. It used to open on 4, so tapping
+  /// straight through submitted a rating they never gave.
+  int _rating = 0;
   final _commentController = TextEditingController();
   bool _submitting = false;
   String? _error;
-
-  static const List<String> _tips = ['£1', '£2', '£5', 'Other'];
 
   @override
   void dispose() {
@@ -28,14 +31,7 @@ class _RateScreenState extends ConsumerState<RateScreen> {
   }
 
   Future<void> _submit() async {
-    final tripId = ref.read(rideFlowProvider).activeTrip?.id;
-    if (tripId == null) {
-      // Reached without an active trip (e.g. via the dev stepper) — nothing
-      // to rate, so just carry on home.
-      context.go('/home');
-      return;
-    }
-
+    final tripId = widget.trip.id;
     setState(() {
       _submitting = true;
       _error = null;
@@ -62,6 +58,9 @@ class _RateScreenState extends ConsumerState<RateScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final driver = widget.trip.driver;
+    final tip = widget.trip.formattedTip;
+
     return Scaffold(
       backgroundColor: Brand.bg,
       body: SafeArea(
@@ -74,13 +73,25 @@ class _RateScreenState extends ConsumerState<RateScreen> {
               const SizedBox(height: 14),
               const McTitle('Rate your driver', size: 23, align: TextAlign.center),
               const SizedBox(height: 18),
+              // The driver as recorded on the trip. Nothing invented: a trip
+              // with no driver details shows none.
               Column(
                 children: [
                   const McAvatar(size: 76, color: Brand.blue),
-                  const SizedBox(height: 6),
-                  Text('James K.', style: tw(FontWeight.w900, 17)),
-                  const SizedBox(height: 2),
-                  Text('Silver Toyota Prius', style: tw(FontWeight.w600, 13, Brand.sub)),
+                  if (driver != null) ...[
+                    const SizedBox(height: 6),
+                    Text(driver.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: tw(FontWeight.w900, 17)),
+                    if (driver.vehicle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(driver.vehicle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: tw(FontWeight.w600, 13, Brand.sub)),
+                    ],
+                  ],
                 ],
               ),
               const SizedBox(height: 18),
@@ -102,48 +113,30 @@ class _RateScreenState extends ConsumerState<RateScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              // Tip card.
-              McCard(
-                padding: 16,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Add a tip', style: tw(FontWeight.w900, 15)),
-                    const SizedBox(height: 2),
-                    Text('100% goes to James', style: tw(FontWeight.w600, 12.5, Brand.sub)),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        for (int i = 0; i < _tips.length; i++) ...[
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _tip = i),
-                              child: Container(
-                                height: 50,
-                                alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                  color: _tip == i ? Brand.green.withValues(alpha: 0.07) : Brand.paper,
-                                  borderRadius: BorderRadius.circular(13),
-                                  border: Border.all(
-                                    color: _tip == i ? Brand.green : Brand.line,
-                                    width: 1.5,
-                                  ),
-                                ),
-                                child: Text(
-                                  _tips[i],
-                                  style: tw(FontWeight.w900, 15, _tip == i ? Brand.green : Brand.ink),
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (i != _tips.length - 1) const SizedBox(width: 9),
-                        ],
-                      ],
-                    ),
-                  ],
+              // The tip the rider actually added when booking, read-only. What
+              // stood here was a £1/£2/£5 selector that charged nothing and
+              // sent nothing — the tip goes on the booking, and the rating
+              // endpoint takes only a score and a comment.
+              if (tip != null) ...[
+                McCard(
+                  padding: 16,
+                  child: Row(
+                    children: [
+                      const Ico('gift', size: 20, color: Brand.green),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          driver == null
+                              ? 'You added a $tip tip — 100% goes to your driver'
+                              : 'You added a $tip tip — 100% goes to ${driver.name}',
+                          style: tw(FontWeight.w700, 13, Brand.sub),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 14),
+                const SizedBox(height: 14),
+              ],
               McField(
                 icon: 'edit',
                 placeholder: 'Leave a compliment…',
@@ -156,10 +149,10 @@ class _RateScreenState extends ConsumerState<RateScreen> {
               ],
               const SizedBox(height: 18),
               McButton(
-                _submitting ? 'Submitting…' : 'Submit · £2.00 tip',
+                _submitting ? 'Submitting…' : 'Submit rating',
                 icon: 'check',
                 kind: BtnKind.green,
-                onTap: _submitting ? null : _submit,
+                onTap: (_submitting || _rating == 0) ? null : _submit,
               ),
             ],
           ),

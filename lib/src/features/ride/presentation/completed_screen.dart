@@ -3,23 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/mc.dart';
-import '../providers/ride_flow_notifier.dart';
+import '../models/trip.dart';
 
 class CompletedScreen extends ConsumerWidget {
-  const CompletedScreen({super.key});
+  const CompletedScreen({super.key, required this.trip});
+
+  /// The finished ride — always a real one, supplied by `RideGate`.
+  final Trip trip;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final trip = ref.watch(rideFlowProvider).activeTrip;
-    final driverName = trip?.driver?.name ?? 'James';
-    final fare = trip?.formattedFare;
+    final driverName = trip.driver?.name;
+    final fare = trip.formattedFare;
+    final tip = trip.formattedTip;
+    final total = trip.formattedTotal;
 
     // Real payment state (cash today; card once Stripe lands).
-    final payIcon = (trip?.isCash ?? true) ? 'cash' : 'card';
-    final payLabel = trip?.paymentMethodLabel ?? 'Cash';
-    final payNote = trip == null
-        ? null
-        : (trip.isPaid ? 'Paid' : 'Due on arrival');
+    final payIcon = trip.isCash ? 'cash' : 'card';
+    final payLabel = trip.paymentMethodLabel;
+    final payNote = trip.isPaid ? 'Paid' : 'Due on arrival';
 
     return Scaffold(
       backgroundColor: Brand.bg,
@@ -51,8 +53,12 @@ class CompletedScreen extends ConsumerWidget {
                   const SizedBox(height: 10),
                   const McTitle("You've arrived", size: 23, align: TextAlign.center),
                   const SizedBox(height: 6),
-                  Text('Hope you enjoyed the ride with $driverName',
-                      textAlign: TextAlign.center, style: tw(FontWeight.w600, 13.5, Brand.sub)),
+                  Text(
+                      driverName == null
+                          ? 'Hope you enjoyed your ride'
+                          : 'Hope you enjoyed the ride with $driverName',
+                      textAlign: TextAlign.center,
+                      style: tw(FontWeight.w600, 13.5, Brand.sub)),
                 ],
               ),
               const SizedBox(height: 18),
@@ -62,19 +68,19 @@ class CompletedScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (fare != null)
-                      _FareRow('Trip fare', fare)
-                    else ...[
-                      const _FareRow('Economy fare', '£8.90'),
-                      const _FareRow('Promo SAVE10', '−£0.89', value: Brand.green),
-                      const _FareRow('Booking fee', '£0.00'),
-                    ],
+                    // Only what the trip actually carries. The old fallback
+                    // invented an "Economy fare £8.90 / Promo SAVE10 −£0.89 /
+                    // Booking fee" breakdown and an £8.01 total.
+                    _FareRow(
+                        '${trip.tierLabel.isEmpty ? 'Trip' : trip.tierLabel} fare',
+                        fare ?? '—'),
+                    if (tip != null) _FareRow('Tip', tip),
                     Container(height: 1, color: Brand.fill, margin: const EdgeInsets.symmetric(vertical: 8)),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total paid', style: tw(FontWeight.w900, 16)),
-                        Text(fare ?? '£8.01', style: tw(FontWeight.w900, 20)),
+                        Text(total ?? '—', style: tw(FontWeight.w900, 20)),
                       ],
                     ),
                     Container(
@@ -88,12 +94,10 @@ class CompletedScreen extends ConsumerWidget {
                           Ico(payIcon, size: 18, color: Brand.sub),
                           const SizedBox(width: 8),
                           Text(payLabel, style: tw(FontWeight.w700, 13, Brand.sub)),
-                          if (payNote != null) ...[
-                            const Spacer(),
-                            Text(payNote,
-                                style: tw(FontWeight.w800, 12,
-                                    trip!.isPaid ? Brand.green : Brand.sub)),
-                          ],
+                          const Spacer(),
+                          Text(payNote,
+                              style: tw(FontWeight.w800, 12,
+                                  trip.isPaid ? Brand.green : Brand.sub)),
                         ],
                       ),
                     ),
@@ -108,9 +112,7 @@ class CompletedScreen extends ConsumerWidget {
                       'Receipt',
                       icon: 'receipt',
                       height: 48,
-                      onTap: trip != null
-                          ? () => context.push('/receipt', extra: trip)
-                          : null,
+                      onTap: () => context.push('/receipt', extra: trip),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -128,10 +130,10 @@ class CompletedScreen extends ConsumerWidget {
 }
 
 class _FareRow extends StatelessWidget {
-  const _FareRow(this.label, this.amount, {this.value = Brand.ink});
+  const _FareRow(this.label, this.amount);
   final String label;
   final String amount;
-  final Color value;
+  static const value = Brand.ink;
 
   @override
   Widget build(BuildContext context) {

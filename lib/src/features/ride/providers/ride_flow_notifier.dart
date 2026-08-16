@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/realtime/realtime_service.dart';
 import '../models/chat_message.dart';
+import '../models/directions_result.dart';
 import '../models/driver_location.dart';
 import '../models/place.dart';
 import '../models/ride_quote.dart';
@@ -22,6 +23,7 @@ class RideFlowState {
   const RideFlowState({
     this.pickup,
     this.dropoff,
+    this.route,
     this.distanceMiles,
     this.durationMinutes,
     this.selectedOptionId,
@@ -34,6 +36,12 @@ class RideFlowState {
 
   final Place? pickup;
   final Place? dropoff;
+
+  /// The driving route as fetched once on the preview screen. Kept here so the
+  /// choose-ride / confirm / searching maps can draw the **real** line without
+  /// each paying for its own Directions call (they used to sit on decorative
+  /// hand-painted map art instead).
+  final DirectionsResult? route;
 
   /// Route metrics from the directions preview — the inputs the fare chart is
   /// priced against. Null until a route has been previewed.
@@ -61,6 +69,7 @@ class RideFlowState {
   RideFlowState copyWith({
     Place? pickup,
     Place? dropoff,
+    DirectionsResult? route,
     double? distanceMiles,
     int? durationMinutes,
     String? selectedOptionId,
@@ -75,6 +84,7 @@ class RideFlowState {
       RideFlowState(
         pickup: pickup ?? this.pickup,
         dropoff: dropoff ?? this.dropoff,
+        route: route ?? this.route,
         distanceMiles: distanceMiles ?? this.distanceMiles,
         durationMinutes: durationMinutes ?? this.durationMinutes,
         selectedOptionId: selectedOptionId ?? this.selectedOptionId,
@@ -99,12 +109,14 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   void setRoute({
     required Place pickup,
     required Place dropoff,
+    DirectionsResult? route,
     double? distanceMiles,
     int? durationMinutes,
   }) {
     state = state.copyWith(
       pickup: pickup,
       dropoff: dropoff,
+      route: route,
       distanceMiles: distanceMiles,
       durationMinutes: durationMinutes,
       clearError: true,
@@ -303,13 +315,29 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     }
   }
 
-  /// Dev-only: seeds a demo trip so the "Screens" walkthrough's searching/
-  /// in-progress previews render the real map instead of static art. A no-op
-  /// whenever a real trip is already active, so it can never clobber a live
-  /// ride the rider is actually on.
-  void previewDemoTrip(Trip trip) {
-    if (state.activeTrip != null) return;
-    state = state.copyWith(activeTrip: trip);
+  /// Loads the rider's most recently completed trip — what the completed and
+  /// rate screens are about when they weren't reached by finishing a ride in
+  /// this session (menu, deep link, app restart). Returns null when the rider
+  /// has never completed one, or the call failed.
+  ///
+  /// This does **not** start realtime: the trip is over, there is nothing left
+  /// to push.
+  Future<Trip?> loadLastCompletedTrip() async {
+    try {
+      final trips = await _repo.tripHistory();
+      final done =
+          trips.where((t) => t.status == TripStatus.completed).toList();
+      if (done.isEmpty) return null;
+
+      DateTime finishedAt(Trip t) =>
+          t.completedAt ?? t.createdAt ?? DateTime(0);
+      final trip =
+          done.reduce((a, b) => finishedAt(a).isAfter(finishedAt(b)) ? a : b);
+      if (mounted) state = state.copyWith(activeTrip: trip, clearError: true);
+      return trip;
+    } catch (_) {
+      return null;
+    }
   }
 
   void reset() {
@@ -361,25 +389,31 @@ final rideFlowProvider =
   (ref) => RideFlowNotifier(ref.watch(rideRepositoryProvider), ref),
 );
 
+/// Thrown when something asks for a price before the rider has set a route.
+/// The route screens are gated on `hasRoute`, so this is a backstop, not a
+/// user-facing path.
+class NoRouteException implements Exception {
+  const NoRouteException();
+  @override
+  String toString() => 'NoRouteException: no pickup/drop-off set';
+}
+
 /// Prices the current route **on-device** from the API's fare chart — no
 /// per-route round-trip, so tier prices appear instantly. The chart is fetched
 /// once and cached ([fareChartProvider]); this recomputes locally whenever the
 /// route changes. The API re-prices authoritatively at booking from the same
 /// chart, so the shown price matches the charged price.
 ///
-/// Falls back to a default route so the choose-ride screen still renders when
-/// navigated to directly (e.g. via the dev stepper).
+/// Requires a real route. It used to substitute a default Canary Wharf → Tower
+/// Bridge one, so opening choose-ride directly quoted confident prices for a
+/// journey the rider had never asked for.
 final rideQuoteProvider = FutureProvider.autoDispose<RideQuote>((ref) async {
   final flow = ref.watch(rideFlowProvider);
   final chart = await ref.watch(fareChartProvider.future);
 
-  const fallbackPickup =
-      Place(label: 'Current location', address: '', lat: 51.5054, lng: -0.0235);
-  const fallbackDropoff =
-      Place(label: 'Destination', address: '', lat: 51.5055, lng: -0.0754);
-
-  final pickup = flow.pickup ?? fallbackPickup;
-  final dropoff = flow.dropoff ?? fallbackDropoff;
+  final pickup = flow.pickup;
+  final dropoff = flow.dropoff;
+  if (pickup == null || dropoff == null) throw const NoRouteException();
 
   // Use the previewed route metrics when present; otherwise estimate from the
   // straight-line distance (× a typical road factor) so a direct-navigation

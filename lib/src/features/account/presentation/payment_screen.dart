@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../core/widgets/mc.dart';
 
+/// What the rider actually pays with today: cash, handed to the driver at
+/// drop-off.
+///
+/// This screen used to list two saved cards — a "default" Visa •••• 4242 and a
+/// Mastercard •••• 8801 — above an add-a-card form whose button did nothing.
+/// Neither card existed: there is no saved-card API, and the confirm screen
+/// already marks Card as "Soon". A rider could reasonably have believed a card
+/// of theirs was on file and would be charged.
 class PaymentScreen extends StatelessWidget {
   const PaymentScreen({super.key});
 
@@ -17,109 +25,77 @@ class PaymentScreen extends StatelessWidget {
             children: [
               const McNavHeader(title: 'Payment', fallback: '/account'),
               const SizedBox(height: 16),
-              _sectionLabel('CARDS'),
+              Text('HOW YOU PAY', style: tw(FontWeight.w800, 12, Brand.sub, 0.5)),
               const SizedBox(height: 10),
-              _cardRow(
-                brand: 'Visa',
-                number: '•••• 4242',
-                expires: 'Expires 04/28',
-                chipGradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Brand.blue, Brand.blueDeep],
+              McCard(
+                padding: 16,
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: Brand.green.withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Center(
+                        child: Ico('cash', size: 22, color: Brand.green),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('Cash', style: tw(FontWeight.w900, 15)),
+                          Text('Pay your driver at the end of the ride',
+                              style: tw(FontWeight.w600, 12.5, Brand.sub)),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 9, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Brand.green.withValues(alpha: 0.09),
+                        borderRadius: BorderRadius.circular(99),
+                      ),
+                      child: Text('Default',
+                          style: tw(FontWeight.w800, 11, Brand.green)),
+                    ),
+                  ],
                 ),
-                isDefault: true,
-              ),
-              const SizedBox(height: 10),
-              _cardRow(
-                brand: 'Mastercard',
-                number: '•••• 8801',
-                expires: 'Expires 05/28',
-                chipGradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFF3E4756), Color(0xFF1E2734)],
-                ),
-                isDefault: false,
               ),
               const SizedBox(height: 22),
-              _sectionLabel('ADD A CARD'),
+              Text('CARDS', style: tw(FontWeight.w800, 12, Brand.sub, 0.5)),
               const SizedBox(height: 10),
-              const McField(
-                  icon: 'card',
-                  placeholder: 'Card number',
-                  editable: true,
-                  keyboardType: TextInputType.number),
-              const SizedBox(height: 10),
-              const Row(
-                children: [
-                  Expanded(
-                      child: McField(
-                          placeholder: 'MM / YY',
-                          editable: true,
-                          keyboardType: TextInputType.datetime)),
-                  SizedBox(width: 10),
-                  Expanded(
-                      child: McField(
-                          placeholder: 'CVC',
-                          editable: true,
-                          keyboardType: TextInputType.number)),
-                ],
+              McCard(
+                padding: 16,
+                child: Row(
+                  children: [
+                    const Ico('card', size: 22, color: Brand.sub),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('No cards saved',
+                              style: tw(FontWeight.w900, 14.5)),
+                          Text(
+                              'Card payment is coming soon — you’ll be able to '
+                              'add one here.',
+                              style: tw(FontWeight.w600, 12.5, Brand.sub)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              const SizedBox(height: 18),
-              const McButton('Add card', icon: 'plus'),
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _sectionLabel(String text) =>
-      Text(text, style: tw(FontWeight.w800, 12, Brand.sub, 0.5));
-
-  Widget _cardRow({
-    required String brand,
-    required String number,
-    required String expires,
-    required Gradient chipGradient,
-    required bool isDefault,
-  }) {
-    return McCard(
-      padding: 14,
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 30,
-            decoration: BoxDecoration(
-              gradient: chipGradient,
-              borderRadius: BorderRadius.circular(7),
-            ),
-            child: const Center(child: Ico('card', size: 18, color: Colors.white)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$brand $number', style: tw(FontWeight.w900, 14.5)),
-                Text(expires, style: tw(FontWeight.w600, 12, Brand.sub)),
-              ],
-            ),
-          ),
-          if (isDefault)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
-              decoration: BoxDecoration(
-                color: Brand.green.withValues(alpha: 0.09),
-                borderRadius: BorderRadius.circular(99),
-              ),
-              child: Text('Default', style: tw(FontWeight.w800, 11, Brand.green)),
-            )
-          else
-            const Ico('chevR', size: 18, color: Brand.faint),
-        ],
       ),
     );
   }

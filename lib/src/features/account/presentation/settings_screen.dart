@@ -67,14 +67,12 @@ class SettingsScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(auth.fullName ?? 'Add your name', style: tw(FontWeight.w900, 18)),
-                                const SizedBox(height: 2),
-                                Row(
-                                  children: [
-                                    const Ico('starF', size: 14, color: Brand.star),
-                                    const SizedBox(width: 5),
-                                    Text('4.92 · ${auth.email ?? auth.phone ?? ''}',
-                                        style: tw(FontWeight.w700, 13, Brand.sub)),
-                                  ],
+                                const SizedBox(height: 3),
+                                Text(
+                                  auth.email ?? auth.phone ?? 'Signed in rider',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tw(FontWeight.w700, 13, Brand.sub),
                                 ),
                               ],
                             ),

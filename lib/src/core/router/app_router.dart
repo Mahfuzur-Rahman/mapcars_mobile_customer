@@ -35,6 +35,7 @@ import '../../features/ride/presentation/route_preview_screen.dart';
 import '../../features/ride/presentation/searching_screen.dart';
 import '../../features/ride/presentation/set_route_screen.dart';
 import '../../features/ride/presentation/tracking_screen.dart';
+import '../../features/ride/presentation/widgets/ride_gate.dart';
 
 /// Ordered walk-through used by the floating hamburger menu drawer.
 ///
@@ -160,14 +161,34 @@ final routerProvider = Provider<GoRouter>((ref) {
             return RoutePreviewScreen(destination: dest);
           },
         ),
-        _r('/choose-ride', () => const ChooseRideScreen()),
-        _r('/confirm', () => const ConfirmScreen()),
-        _r('/searching', () => const SearchingScreen()),
-        _r('/tracking', () => const TrackingScreen()),
-        _r('/chat', () => const ChatScreen()),
-        _r('/in-progress', () => const InProgressScreen()),
-        _r('/completed', () => const CompletedScreen()),
-        _r('/rate', () => const RateScreen()),
+        // Pre-booking: about a route the rider set, not a trip yet.
+        _r('/choose-ride',
+            () => const RouteGate(child: ChooseRideScreen())),
+        _r('/confirm',
+            () => const RouteGate(requireOption: true, child: ConfirmScreen())),
+        // Booked: every one of these is about a real trip. `RideGate` resolves
+        // the rider's own ride from the API when the screen wasn't reached
+        // through the booking flow (menu, deep link, restart), and says plainly
+        // when there isn't one.
+        _r('/searching', () => RideGate(builder: (t) => SearchingScreen(trip: t))),
+        _r('/tracking', () => RideGate(builder: (t) => TrackingScreen(trip: t))),
+        _r('/chat', () => RideGate(builder: (t) => ChatScreen(trip: t))),
+        _r('/in-progress',
+            () => RideGate(builder: (t) => InProgressScreen(trip: t))),
+        _r(
+          '/completed',
+          () => RideGate(
+            scope: RideGateScope.lastCompletedTrip,
+            builder: (t) => CompletedScreen(trip: t),
+          ),
+        ),
+        _r(
+          '/rate',
+          () => RideGate(
+            scope: RideGateScope.lastCompletedTrip,
+            builder: (t) => RateScreen(trip: t),
+          ),
+        ),
         // Account
         _r('/activity', () => const HistoryScreen()),
         GoRoute(

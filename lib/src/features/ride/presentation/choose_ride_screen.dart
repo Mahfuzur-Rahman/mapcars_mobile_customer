@@ -4,11 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
-import '../../../core/widgets/map_background.dart';
 import '../models/ride_option.dart';
 import '../models/ride_quote.dart';
 import '../providers/fare_chart_provider.dart';
 import '../providers/ride_flow_notifier.dart';
+import 'widgets/static_route_map.dart';
 
 class ChooseRideScreen extends ConsumerStatefulWidget {
   const ChooseRideScreen({super.key});
@@ -23,16 +23,16 @@ class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
   @override
   Widget build(BuildContext context) {
     final quote = ref.watch(rideQuoteProvider);
+    // Guaranteed by `RouteGate` — this screen is only reachable with a route.
+    final flow = ref.watch(rideFlowProvider);
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(
-            child: MapBackground(
-              route: true,
-              markers: [
-                MapMarker(0.28, 0.80, MapPin(dest: false)),
-                MapMarker(0.72, 0.26, MapPin(dest: true)),
-              ],
+          Positioned.fill(
+            child: StaticRouteMap(
+              pickup: flow.pickup!,
+              dropoff: flow.dropoff!,
+              route: flow.route,
             ),
           ),
           Positioned(
@@ -119,21 +119,10 @@ class _RideList extends StatelessWidget {
             ),
             if (i < options.length - 1) const SizedBox(height: 8),
           ],
-          const SizedBox(height: 14),
-          Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Row(
-              children: [
-                const Ico('card', size: 20, color: Brand.sub),
-                const SizedBox(width: 10),
-                Text('•••• 4242', style: tw(FontWeight.w800, 14)),
-                const Spacer(),
-                const Ico('gift', size: 18, color: Brand.sub),
-                const SizedBox(width: 6),
-                Text('Add promo', style: tw(FontWeight.w700, 13, Brand.blue)),
-              ],
-            ),
-          ),
+          // The payment method and any promo are chosen on the confirm screen,
+          // against the real booking. What sat here was a fixed "•••• 4242"
+          // card and a promo link that did nothing.
+          const SizedBox(height: 18),
           McButton(
             'Choose ${sel.name} · ${sel.formattedPrice}',
             icon: 'bolt',

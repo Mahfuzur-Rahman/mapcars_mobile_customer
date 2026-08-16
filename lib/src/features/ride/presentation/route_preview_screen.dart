@@ -71,6 +71,9 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
               lng: origin.longitude,
             ),
             dropoff: widget.destination,
+            // Hand the fetched route on so the next screens can draw the real
+            // line without a second (billed) Directions call.
+            route: route,
             distanceMiles: route.distanceMeters / 1609.344,
             durationMinutes: (route.durationSeconds / 60).round(),
           );

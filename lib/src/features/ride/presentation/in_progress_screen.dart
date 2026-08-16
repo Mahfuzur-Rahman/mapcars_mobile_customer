@@ -4,15 +4,18 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/widgets/mc.dart';
-import '../../../core/widgets/map_background.dart';
-import '../models/driver_info.dart';
+import '../models/trip.dart';
 import '../models/trip_status.dart';
 import '../providers/ride_flow_notifier.dart';
 import 'tracking_screen.dart' show confirmCancelRide;
+import 'widgets/driver_card.dart';
 import 'widgets/trip_tracking_map.dart';
 
 class InProgressScreen extends ConsumerStatefulWidget {
-  const InProgressScreen({super.key});
+  const InProgressScreen({super.key, required this.trip});
+
+  /// The ride under way — always a real one, supplied by `RideGate`.
+  final Trip trip;
 
   @override
   ConsumerState<InProgressScreen> createState() => _InProgressScreenState();
@@ -32,9 +35,9 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final flow = ref.watch(rideFlowProvider);
-    final trip = flow.activeTrip;
-    final driverPosition = flow.driverLocation;
+    final trip = widget.trip;
+    final driverPosition =
+        ref.watch(rideFlowProvider.select((s) => s.driverLocation));
     final eta = _eta;
 
     // Move on once the driver marks the trip complete, or bounce home if it's
@@ -59,23 +62,13 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
       body: Stack(
         children: [
           Positioned.fill(
-            child: trip == null
-                // Dev/deep-link with no trip: nothing real to map.
-                ? const MapBackground(
-                    route: true,
-                    markers: [
-                      MapMarker(0.44, 0.58, CarMark()),
-                      MapMarker(0.72, 0.26, MapPin(dest: true)),
-                    ],
-                  )
-                : TripTrackingMap(
-                    driver: driverPosition,
-                    destination:
-                        LatLng(trip.dropoff.lat, trip.dropoff.lng),
-                    destinationLabel: trip.dropoff.label,
-                    isPickup: false,
-                    onEta: (value) => setState(() => _eta = value),
-                  ),
+            child: TripTrackingMap(
+              driver: driverPosition,
+              destination: LatLng(trip.dropoff.lat, trip.dropoff.lng),
+              destinationLabel: trip.dropoff.label,
+              isPickup: false,
+              onEta: (value) => setState(() => _eta = value),
+            ),
           ),
           // Floating nav + status pill.
           Positioned(
@@ -115,9 +108,10 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
                           ),
                           Text(
                             eta == null
-                                ? (trip?.dropoff.label ??
-                                    'Heading to your destination')
-                                : '${eta.distanceLabel} to ${trip?.dropoff.label ?? 'your destination'}',
+                                ? trip.dropoff.label
+                                : '${eta.distanceLabel} to ${trip.dropoff.label}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: tw(FontWeight.w600, 12, Colors.white.withValues(alpha: 0.7)),
                           ),
                         ],
@@ -153,7 +147,10 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(trip?.dropoff.label ?? 'Tower Bridge, SE1', style: tw(FontWeight.w900, 15)),
+                              Text(trip.dropoff.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tw(FontWeight.w900, 15)),
                               Text('Destination', style: tw(FontWeight.w600, 12, Brand.sub)),
                             ],
                           ),
@@ -181,7 +178,7 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
                       ],
                     ),
                     const SizedBox(height: 14),
-                    _DriverRow(driver: trip?.driver),
+                    DriverCard(driver: trip.driver),
                     const SizedBox(height: 12),
                     const Row(
                       children: [
@@ -211,48 +208,3 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
   }
 }
 
-class _DriverRow extends StatelessWidget {
-  const _DriverRow({this.driver});
-  final DriverInfo? driver;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = driver?.name ?? 'James K.';
-    final rating = driver?.rating ?? 4.9;
-    final vehicle = driver?.vehicle ?? 'Silver Toyota Prius · Economy';
-    final plate = driver?.plate ?? 'LB12 KXR';
-
-    return McCard(
-      padding: 14,
-      child: Row(
-        children: [
-          const McAvatar(size: 52, color: Brand.blue),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(name, style: tw(FontWeight.w900, 16)),
-                    const SizedBox(width: 6),
-                    const Ico('starF', size: 14, color: Brand.star),
-                    const SizedBox(width: 3),
-                    Text(rating.toStringAsFixed(1), style: tw(FontWeight.w800, 13)),
-                  ],
-                ),
-                Text(vehicle, style: tw(FontWeight.w600, 12.5, Brand.sub)),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(color: Brand.fill, borderRadius: BorderRadius.circular(7)),
-            child: Text(plate, style: tw(FontWeight.w900, 14, Brand.ink, 0.5)),
-          ),
-        ],
-      ),
-    );
-  }
-}

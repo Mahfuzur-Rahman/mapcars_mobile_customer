@@ -3,13 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/mc.dart';
-import '../../ride/demo_trip.dart';
-import '../../ride/providers/ride_flow_notifier.dart';
-
-/// Routes whose real map only renders once a trip is active — seed the demo
-/// trip before opening these so the preview matches production instead of
-/// falling back to static walkthrough art.
-const _routesNeedingDemoTrip = {'/searching', '/in-progress', '/chat'};
 
 /// Prototype helper — jump to any screen. Reached from the splash screen.
 class ScreenIndexScreen extends ConsumerWidget {
@@ -77,13 +70,9 @@ class ScreenIndexScreen extends ConsumerWidget {
                 children: [
                   for (int i = 0; i < entry.value.length; i++)
                     InkWell(
-                      onTap: () {
-                        final path = entry.value[i][1];
-                        if (_routesNeedingDemoTrip.contains(path)) {
-                          ref.read(rideFlowProvider.notifier).previewDemoTrip(demoTrip);
-                        }
-                        context.push(path);
-                      },
+                      // The ride screens resolve the rider's own trip through
+                      // `RideGate` — nothing is seeded for them here.
+                      onTap: () => context.push(entry.value[i][1]),
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                         decoration: BoxDecoration(

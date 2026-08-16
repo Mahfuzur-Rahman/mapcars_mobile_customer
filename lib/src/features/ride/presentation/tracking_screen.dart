@@ -6,13 +6,17 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
-import '../models/driver_info.dart';
+import '../models/trip.dart';
 import '../models/trip_status.dart';
 import '../providers/ride_flow_notifier.dart';
+import 'widgets/driver_card.dart';
 import 'widgets/trip_tracking_map.dart';
 
 class TrackingScreen extends ConsumerStatefulWidget {
-  const TrackingScreen({super.key});
+  const TrackingScreen({super.key, required this.trip});
+
+  /// The ride being tracked — always a real one, supplied by `RideGate`.
+  final Trip trip;
 
   @override
   ConsumerState<TrackingScreen> createState() => _TrackingScreenState();
@@ -47,25 +51,33 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     return '$who is on the way';
   }
 
+  /// Calls the driver on their real number. There is no stand-in: this used to
+  /// fall back to a hard-coded London landline, so "Call" on a trip whose
+  /// driver has no number dialled a stranger.
   Future<void> _makeCall(BuildContext context, String? phone) async {
-    final phoneNumber = (phone != null && phone.isNotEmpty) ? phone : '+442079460912';
-    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (phone == null || phone.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(
+          content: Text("Your driver's number isn't available — use Message."),
+        ));
+      return;
+    }
+    final launchUri = Uri(scheme: 'tel', path: phone);
     if (await canLaunchUrl(launchUri)) {
       await launchUrl(launchUri);
-    } else {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not launch call to $phoneNumber')),
-        );
-      }
+    } else if (context.mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('Could not start a call to $phone')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final flow = ref.watch(rideFlowProvider);
-    final trip = flow.activeTrip;
-    final driverPosition = flow.driverLocation;
+    final trip = widget.trip;
+    final driverPosition =
+        ref.watch(rideFlowProvider.select((s) => s.driverLocation));
 
     // React to the real trip: move on once the driver starts the trip, or
     // bounce home if it's cancelled out from under the rider (e.g. the driver
@@ -85,12 +97,9 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
       }
     });
 
-    final arrived = trip?.status == TripStatus.driverArrived;
-    final driverName = trip?.driver?.name;
+    final arrived = trip.status == TripStatus.driverArrived;
+    final driverName = trip.driver?.name;
     final eta = _eta;
-
-    final pickupLat = trip?.pickup.lat ?? 51.5054;
-    final pickupLng = trip?.pickup.lng ?? -0.0235;
 
     return Scaffold(
       body: Stack(
@@ -98,8 +107,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
           Positioned.fill(
             child: TripTrackingMap(
               driver: driverPosition,
-              destination: LatLng(pickupLat, pickupLng),
-              destinationLabel: trip?.pickup.label ?? 'Meeting point',
+              destination: LatLng(trip.pickup.lat, trip.pickup.lng),
+              destinationLabel: trip.pickup.label,
               isPickup: true,
               onEta: (value) => setState(() => _eta = value),
             ),
@@ -165,9 +174,31 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    _DriverRow(
-                      driver: trip?.driver,
-                      onCall: () => _makeCall(context, null),
+                    DriverCard(
+                      driver: trip.driver,
+                      actions: Row(
+                        children: [
+                          Expanded(
+                            child: _MiniButton(
+                              icon: 'phone',
+                              label: 'Call',
+                              onTap: () =>
+                                  _makeCall(context, trip.driver?.phone),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _MiniButton(
+                              icon: 'msg',
+                              label: 'Message',
+                              onTap: () => context.push('/chat'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Expanded(
+                              child: _MiniButton(icon: 'shield', label: 'Safety')),
+                        ],
+                      ),
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(4, 14, 4, 12),
@@ -181,7 +212,9 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'Meet at ${trip?.pickup.label ?? '40 Canary Wharf'}',
+                              'Meet at ${trip.pickup.label}',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
                               style: tw(FontWeight.w700, 13),
                             ),
                           ),
@@ -191,7 +224,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                     // The driver keys this in before setting off, so it has to
                     // be readable at arm's length in a car window — not a 12pt
                     // aside. Hidden when the trip predates PINs.
-                    if (trip?.pin case final pin?) ...[
+                    if (trip.pin case final pin?) ...[
                       _PinCard(pin: pin, arrived: arrived),
                       const SizedBox(height: 12),
                     ],
@@ -311,80 +344,6 @@ class _PinCard extends StatelessWidget {
                   ),
                 ),
               ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DriverRow extends StatelessWidget {
-  const _DriverRow({this.driver, this.onCall});
-  final DriverInfo? driver;
-  final VoidCallback? onCall;
-
-  @override
-  Widget build(BuildContext context) {
-    final name = driver?.name ?? 'James K.';
-    final rating = driver?.rating ?? 4.9;
-    final vehicle = driver?.vehicle ?? 'Silver Toyota Prius · Economy';
-    final plate = driver?.plate ?? 'LB12 KXR';
-
-    return McCard(
-      padding: 14,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const McAvatar(size: 52, color: Brand.blue),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(name, style: tw(FontWeight.w900, 16)),
-                        const SizedBox(width: 6),
-                        const Ico('starF', size: 14, color: Brand.star),
-                        const SizedBox(width: 3),
-                        Text(rating.toStringAsFixed(1), style: tw(FontWeight.w800, 13)),
-                      ],
-                    ),
-                    Text(vehicle, style: tw(FontWeight.w600, 12.5, Brand.sub)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(color: Brand.fill, borderRadius: BorderRadius.circular(7)),
-                child: Text(plate, style: tw(FontWeight.w900, 14, Brand.ink, 0.5)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Row(
-            children: [
-              Expanded(
-                child: _MiniButton(
-                  icon: 'phone',
-                  label: 'Call',
-                  onTap: onCall,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _MiniButton(
-                  icon: 'msg',
-                  label: 'Message',
-                  onTap: () => context.push('/chat'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              const Expanded(child: _MiniButton(icon: 'shield', label: 'Safety')),
             ],
           ),
         ],

@@ -5,9 +5,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/router/nav.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/mc.dart';
-import '../../../core/widgets/map_background.dart';
 import '../models/ride_option.dart';
 import '../providers/ride_flow_notifier.dart';
+import 'widgets/static_route_map.dart';
 
 /// Final booking step: shows the chosen ride + a tip selector (attract drivers in
 /// the broadcast model), then books the trip for real via the ride flow and heads
@@ -63,13 +63,12 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          const Positioned.fill(
-            child: MapBackground(
-              route: true,
-              markers: [
-                MapMarker(0.28, 0.80, MapPin(dest: false)),
-                MapMarker(0.72, 0.26, MapPin(dest: true)),
-              ],
+          Positioned.fill(
+            // Route and option are both guaranteed by `RouteGate`.
+            child: StaticRouteMap(
+              pickup: flow.pickup!,
+              dropoff: flow.dropoff!,
+              route: flow.route,
             ),
           ),
           Positioned(
@@ -126,12 +125,12 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 _RouteEnd(
-                                  title: flow.pickup?.label ?? 'Pickup',
+                                  title: flow.pickup!.label,
                                   sub: 'Pickup',
                                 ),
                                 const SizedBox(height: 12),
                                 _RouteEnd(
-                                  title: flow.dropoff?.label ?? 'Destination',
+                                  title: flow.dropoff!.label,
                                   sub: flow.distanceMiles != null
                                       ? 'Dropoff · ${flow.distanceMiles!.toStringAsFixed(1)} mi'
                                       : 'Dropoff',
@@ -143,7 +142,13 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
-                    _LineRow(icon: 'car', text: option?.name ?? 'Ride', value: formatGbp(farePence)),
+                    // The price still resolving is a dash, not a £0.00 that
+                    // reads as a real (free) fare.
+                    _LineRow(
+                      icon: 'car',
+                      text: option?.name ?? 'Your ride',
+                      value: option == null ? '—' : formatGbp(farePence),
+                    ),
                     const SizedBox(height: 14),
                     Text('Add a tip to get picked up faster',
                         style: tw(FontWeight.w700, 13, Brand.sub)),
@@ -187,7 +192,8 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text('Total', style: tw(FontWeight.w800, 15)),
-                        Text(formatGbp(totalPence), style: tw(FontWeight.w900, 22)),
+                        Text(option == null ? '—' : formatGbp(totalPence),
+                            style: tw(FontWeight.w900, 22)),
                       ],
                     ),
                     const SizedBox(height: 14),
