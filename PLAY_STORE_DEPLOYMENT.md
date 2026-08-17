@@ -25,9 +25,11 @@ This document serves as the live log, interactive checklist, and step-by-step re
 | **2026-08-06** | Android Release Keystore Generation | ✅ Done | `upload-keystore.jks` + `key.properties` generated, backed up to `keys/mobile/customer_app/android/`. |
 | **2026-08-09** | Production App Bundle (`.aab`) Build | ✅ Done | `flutter build appbundle --release` → `app-release.aab` (68.6MB), version `0.1.0+2`. |
 | **Prior session** | Play Console app entry + Store Listing | ✅ Done (per user) | App created in Play Console; store listing / content rating / data safety reported as already filled in — **verify against Phase 2 checklist below**, since the driver app's equivalent items still show gaps as of 2026-08-10. |
-| **2026-08-10** | App Bundle Rebuilt | ✅ Done | Picked up recent auth/profile/settings changes (`rider_auth_service.dart`, `auth_notifier.dart`, `profile_setup_screen.dart`, `edit_profile_screen.dart`, `settings_screen.dart`, etc.) predating the last build. Bumped to `0.1.0+3` → `app-release.aab` (66.1MB), confirmed signed with the release keystore (build.gradle.kts release buildType uses `signingConfigs.release` whenever `key.properties` is present). **Use this build.** |
+| **2026-08-10** | App Bundle Rebuilt | ✅ Done | Bumped to `0.1.0+3` → `app-release.aab` (66.1MB). |
+| **2026-08-14** | App Bundle Rebuilt | ✅ Done | Bumped to `0.1.0+4` → `app-release.aab` (66.3MB), commit `e880e86`. |
+| **2026-08-17** | App Bundle Rebuilt (v5) | ✅ Done | Bumped to `0.1.0+5` → `app-release.aab` (66.4MB) & `app-release.apk` (67.5MB), commit `7306b1d`. Signed with release keystore (`CN=Sheikh Noor.`). **Use this build for Play Console upload.** |
 | **Pending** | App Content & Policy Declarations (re-check) | ⬜ Pending | Confirm Data safety, Privacy Policy, Target Audience, Review Credentials are actually saved in Console (not just drafted in `mobile/docs/play-store/`). |
-| **Pending** | Internal / Closed Testing Track Release | ⬜ Pending | First upload of the `0.1.0+3` `.aab` and testing setup. |
+| **Pending** | Internal / Closed Testing Track Release | ⬜ Pending | First upload of the `0.1.0+5` `.aab` and testing setup. |
 | **Pending** | Production Release & Play Store Review Submission | ⬜ Pending | Submit for final Google review. |
 
 ---
