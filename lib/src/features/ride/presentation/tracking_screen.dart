@@ -154,28 +154,42 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                     children: [
                       Ico('car', size: 22, color: arrived ? Colors.white : Brand.lime),
                       const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            arrived
-                                ? 'Your driver has arrived'
-                                : eta == null
-                                    // No position yet — don't invent a number.
-                                    ? 'Your driver is on the way'
-                                    : 'Arriving in ${eta.etaLabel}',
-                            style: tw(FontWeight.w900, 16, Colors.white),
-                          ),
-                          Text(
-                            _subtitle(
-                                arrived: arrived,
-                                driverName: driverName,
-                                eta: eta,
-                                stale: driverPosition?.isStale ?? false),
-                            style: tw(FontWeight.w600, 12, Colors.white.withValues(alpha: 0.7)),
-                          ),
-                        ],
+                      // Expanded, not a bare Column: a Row gives its children
+                      // unbounded width, so both lines used to lay out at their
+                      // natural length and overflow the pill on the right. It
+                      // only showed up once a driver was assigned, because that
+                      // is when the subtitle grows from "Your driver is on the
+                      // way" to "<driver name> is 1.2 km away".
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              arrived
+                                  ? 'Your driver has arrived'
+                                  : eta == null
+                                      // No position yet — don't invent a number.
+                                      ? 'Your driver is on the way'
+                                      : 'Arriving in ${eta.etaLabel}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: tw(FontWeight.w900, 16, Colors.white),
+                            ),
+                            Text(
+                              _subtitle(
+                                  arrived: arrived,
+                                  driverName: driverName,
+                                  eta: eta,
+                                  stale: driverPosition?.isStale ?? false),
+                              // A long name must truncate, never push the pill
+                              // apart — this line is the widest thing here.
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: tw(FontWeight.w600, 12, Colors.white.withValues(alpha: 0.7)),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),

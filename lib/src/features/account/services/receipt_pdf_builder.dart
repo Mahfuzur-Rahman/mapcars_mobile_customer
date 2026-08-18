@@ -4,7 +4,6 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../../../core/utils/date_format.dart';
-import '../../../core/utils/money.dart';
 import '../../ride/models/trip.dart';
 
 class ReceiptPdfBuilder {

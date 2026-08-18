@@ -9,12 +9,20 @@ import '../../../core/location/location_service.dart';
 import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
 import '../models/place.dart';
+import '../models/place_prediction.dart';
 import '../providers/search_history_provider.dart';
 import '../services/maps_service.dart';
 
 /// Interactive map screen allowing the rider to pan, drag, and drop a pin
 /// to pinpoint their exact desired location (e.g. alleyways, unmarked spots,
 /// or places not in Google suggestions) with automatic reverse geocoding.
+///
+/// Search lives here too, on the same map. Searching on one screen and then
+/// landing on a different one meant you could never see where a result
+/// actually was before committing to it, and adjusting it afterwards meant
+/// going back and starting again. Here a suggestion just flies the pin to the
+/// place, and the pin stays adjustable — search to get close, drag to get it
+/// exact.
 class PickOnMapScreen extends ConsumerStatefulWidget {
   const PickOnMapScreen({super.key, this.initialPosition});
 
@@ -38,6 +46,19 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
   bool _isMoving = false;
   Timer? _debounceTimer;
 
+  // ── Search ──────────────────────────────────────────────────────────────
+  final TextEditingController _searchCtrl = TextEditingController();
+  final FocusNode _searchFocus = FocusNode();
+  Timer? _searchDebounce;
+  List<PlacePrediction> _predictions = const [];
+  bool _searching = false;
+  String? _searchError;
+
+  /// True once a search result has been applied and the camera has not been
+  /// moved since. Used only to keep the header copy honest — "drag to adjust"
+  /// rather than "drag map to set pin".
+  bool _fromSearch = false;
+
   @override
   void initState() {
     super.initState();
@@ -50,8 +71,94 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
   @override
   void dispose() {
     _debounceTimer?.cancel();
+    _searchDebounce?.cancel();
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
     _mapController?.dispose();
     super.dispose();
+  }
+
+  // ── Search ────────────────────────────────────────────────────────────────
+
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final q = value.trim();
+    if (q.isEmpty) {
+      setState(() {
+        _predictions = const [];
+        _searching = false;
+        _searchError = null;
+      });
+      return;
+    }
+    setState(() => _searching = true);
+    // Autocomplete is billed per keystroke-burst, so coalesce typing the same
+    // way the Set route screen does.
+    _searchDebounce = Timer(const Duration(milliseconds: 350), () => _runSearch(q));
+  }
+
+  Future<void> _runSearch(String query) async {
+    try {
+      final res = await ref
+          .read(googleMapsServiceProvider)
+          .autocomplete(query, origin: _currentCenter);
+      if (!mounted || query != _searchCtrl.text.trim()) return;
+      setState(() {
+        _predictions = res;
+        _searching = false;
+        _searchError = null;
+      });
+    } on MapsServiceException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _predictions = const [];
+        _searching = false;
+        _searchError = e.message;
+      });
+    }
+  }
+
+  /// Fly the pin to a searched place. The result is adopted as the resolved
+  /// place directly — Google's own name/address for it is better than what
+  /// reverse-geocoding the same coordinate would give back.
+  Future<void> _applyPrediction(PlacePrediction p) async {
+    _searchFocus.unfocus();
+    setState(() {
+      _searching = true;
+      _predictions = const [];
+    });
+    try {
+      final place = await ref.read(googleMapsServiceProvider).placeDetails(p.placeId);
+      if (!mounted) return;
+      final target = LatLng(place.lat, place.lng);
+      setState(() {
+        _currentCenter = target;
+        _resolvedPlace = place;
+        _isResolvingAddress = false;
+        _searching = false;
+        _fromSearch = true;
+        _searchCtrl.text = place.label;
+      });
+      await _mapController?.animateCamera(
+        CameraUpdate.newCameraPosition(CameraPosition(target: target, zoom: 17)),
+      );
+    } on MapsServiceException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _searching = false;
+        _searchError = e.message;
+      });
+    }
+  }
+
+  void _clearSearch() {
+    _searchDebounce?.cancel();
+    _searchCtrl.clear();
+    setState(() {
+      _predictions = const [];
+      _searching = false;
+      _searchError = null;
+    });
   }
 
   Future<void> _initLocation() async {
@@ -99,6 +206,8 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
   }
 
   void _onCameraMoveStarted() {
+    if (_fromSearch) _fromSearch = false;
+    if (_searchFocus.hasFocus) _searchFocus.unfocus();
     if (!_isMoving) {
       setState(() => _isMoving = true);
     }
@@ -239,57 +348,152 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
             ),
           ),
 
-          // Top Header Floating Navigation
+          // Top: back + address search, with suggestions dropping over the map.
           Positioned(
             top: 56,
             left: 16,
             right: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => backOr(context, '/set-route'),
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Brand.fill,
-                        borderRadius: BorderRadius.circular(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.08),
+                        blurRadius: 16,
+                        offset: const Offset(0, 4),
                       ),
-                      child: const Ico('chevL', size: 18, color: Brand.ink),
-                    ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Drag map to set pin',
-                          style: tw(FontWeight.w900, 15),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => backOr(context, '/set-route'),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Brand.fill,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Ico('chevL', size: 18, color: Brand.ink),
                         ),
-                        Text(
-                          'Point to your exact destination',
-                          style: tw(FontWeight.w600, 12, Brand.sub),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: _searchCtrl,
+                          focusNode: _searchFocus,
+                          onChanged: _onSearchChanged,
+                          textInputAction: TextInputAction.search,
+                          style: tw(FontWeight.w700, 14.5),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            hintText: 'Search an address or place',
+                            hintStyle: tw(FontWeight.w600, 14, Brand.faint),
+                          ),
+                        ),
+                      ),
+                      if (_searching)
+                        const Padding(
+                          padding: EdgeInsets.only(right: 6),
+                          child: SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: Brand.blue),
+                          ),
+                        )
+                      else if (_searchCtrl.text.isNotEmpty)
+                        GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _clearSearch,
+                          child: const Padding(
+                            padding: EdgeInsets.all(6),
+                            child: Icon(Icons.close_rounded,
+                                size: 20, color: Brand.sub),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Suggestions. Capped and scrollable so a long list can never
+                // cover the pin the rider is trying to place.
+                if (_predictions.isNotEmpty || _searchError != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    constraints: const BoxConstraints(maxHeight: 232),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.10),
+                          blurRadius: 18,
+                          offset: const Offset(0, 6),
                         ),
                       ],
                     ),
+                    child: _searchError != null
+                        ? Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Text(_searchError!,
+                                style: tw(FontWeight.w600, 12.5, Brand.sub)),
+                          )
+                        : ListView.separated(
+                            shrinkWrap: true,
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            itemCount: _predictions.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: Brand.line.withValues(alpha: 0.5),
+                              indent: 46,
+                            ),
+                            itemBuilder: (_, i) {
+                              final p = _predictions[i];
+                              return InkWell(
+                                onTap: () => _applyPrediction(p),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 14, vertical: 10),
+                                  child: Row(
+                                    children: [
+                                      const Ico('pin', size: 18, color: Brand.sub),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Text(p.primaryText,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: tw(FontWeight.w800, 14)),
+                                            if (p.secondaryText.isNotEmpty)
+                                              Text(p.secondaryText,
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                  style: tw(FontWeight.w600, 12,
+                                                      Brand.sub)),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                   ),
                 ],
-              ),
+              ],
             ),
           ),
 
@@ -386,7 +590,22 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      const Icon(Icons.open_with_rounded, size: 14, color: Brand.faint),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          _fromSearch
+                              ? 'Drag the map to fine-tune this spot'
+                              : 'Drag the map to move the pin',
+                          style: tw(FontWeight.w600, 11.5, Brand.faint),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
                   McButton(
                     'Confirm this location',
                     onTap: _confirmSelection,
