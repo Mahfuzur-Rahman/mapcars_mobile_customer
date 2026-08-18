@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
+import '../../../core/notifications/trip_alerts.dart';
 import '../../../core/realtime/realtime_service.dart';
 import '../models/chat_message.dart';
 import '../models/directions_result.dart';
@@ -30,6 +31,7 @@ class RideFlowState {
     this.activeTrip,
     this.driverLocation,
     this.chatMessages = const [],
+    this.realtimeConnected = false,
     this.isLoading = false,
     this.error,
   });
@@ -61,6 +63,11 @@ class RideFlowState {
   /// appended by messageReceived pushes and local sends.
   final List<ChatMessage> chatMessages;
 
+  /// Whether the SignalR connection is up right now. The trip is still tracked
+  /// when it isn't — [RideFlowNotifier] falls back to REST polling — but the
+  /// tracking screen says so, rather than showing a frozen car.
+  final bool realtimeConnected;
+
   final bool isLoading;
   final String? error;
 
@@ -76,6 +83,7 @@ class RideFlowState {
     Trip? activeTrip,
     DriverLocation? driverLocation,
     List<ChatMessage>? chatMessages,
+    bool? realtimeConnected,
     bool? isLoading,
     String? error,
     bool clearError = false,
@@ -94,6 +102,7 @@ class RideFlowState {
         driverLocation:
             clearTrip ? null : (driverLocation ?? this.driverLocation),
         chatMessages: clearTrip ? const [] : (chatMessages ?? this.chatMessages),
+        realtimeConnected: realtimeConnected ?? this.realtimeConnected,
         isLoading: isLoading ?? this.isLoading,
         error: clearError ? null : (error ?? this.error),
       );
@@ -152,7 +161,10 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
         paymentMethodId: paymentMethodId,
         tipAmount: tipAmount,
       );
-      state = state.copyWith(isLoading: false, activeTrip: trip);
+      state = state.copyWith(isLoading: false);
+      // Through the funnel like every other trip update, so the invariant holds
+      // everywhere: one path in, milestones counted once.
+      _applyTrip(trip);
       unawaited(_startRealtime(trip.id));
       return trip;
     } catch (e) {
@@ -163,19 +175,102 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
 
   /// Joins the trip's SignalR group so `tripUpdated` pushes (driver assigned,
   /// arrived, started, completed, cancelled) update [RideFlowState.activeTrip]
-  /// live — this is what lets the searching/tracking screens react instead of
-  /// polling — and `driverLocation` pushes move the car on the map.
-  /// Best-effort: a failed connect just falls back to [refreshActiveTrip]
-  /// polling wherever a screen already calls it.
+  /// live, and `driverLocation` pushes move the car on the map.
+  ///
+  /// Realtime is the *fast* path, never the only one. [_startWatchdog] runs a
+  /// REST poll alongside it for as long as the trip is live. That is not
+  /// belt-and-braces pedantry: this flow previously had no fallback at all
+  /// (`refreshActiveTrip` existed but nothing ever called it), so anything that
+  /// broke the socket — and in production, the proxy broke it once a minute —
+  /// left the rider on "Finding your driver…" while a car was already outside,
+  /// with no PIN and no way to find out.
   Future<void> _startRealtime(String tripId) async {
+    _startWatchdog();
+
     final token = _ref.read(authTokenProvider);
     if (token == null) return;
+
+    _rt.onConnectionChange = (connected) {
+      if (mounted) state = state.copyWith(realtimeConnected: connected);
+      // Coming back from a drop, the app has missed everything said while it was
+      // away: catch up over REST rather than waiting for the next push.
+      if (connected) unawaited(_catchUp());
+      _startWatchdog();
+    };
+
     await _rt.connect(token, {
       'tripUpdated': _onTripUpdated,
       'driverLocation': _onDriverLocation,
       'messageReceived': _onMessageReceived,
     });
-    await _rt.invoke('JoinTrip', args: [tripId]);
+    // joinTrip (not invoke) so the membership is replayed after a reconnect —
+    // SignalR groups are per-connection-id and a reconnect mints a new one.
+    await _rt.joinTrip(tripId);
+  }
+
+  // ── REST safety net ────────────────────────────────────────────────────────
+
+  /// Poll cadence while the socket is down — the rider is waiting on a kerb, so
+  /// a few seconds of staleness is the most that's acceptable. Matched to the
+  /// driver app's own ~5s location-push cadence: polling faster than the driver
+  /// reports cannot surface anything newer, it just costs requests.
+  static const _pollWhenOffline = Duration(seconds: 3);
+
+  /// Cadence while the socket is up. Still polls, because "connected" does not
+  /// prove "subscribed": a client can hold a healthy connection and receive
+  /// nothing, which is precisely the failure this whole path exists to survive.
+  static const _pollWhenOnline = Duration(seconds: 15);
+
+  Timer? _watchdog;
+
+  /// Trips already alerted on arrival, so reopening the app doesn't re-announce
+  /// a driver who arrived ten minutes ago.
+  final Set<String> _arrivalAlerted = {};
+  final Set<String> _assignAlerted = {};
+
+  void _startWatchdog() {
+    _watchdog?.cancel();
+    if (!_shouldPoll) {
+      _watchdog = null;
+      return;
+    }
+    final every = state.realtimeConnected ? _pollWhenOnline : _pollWhenOffline;
+    _watchdog = Timer(every, () {
+      _watchdog = null;
+      unawaited(_catchUp().whenComplete(_startWatchdog));
+    });
+  }
+
+  void _stopWatchdog() {
+    _watchdog?.cancel();
+    _watchdog = null;
+  }
+
+  /// A trip that can still change is worth polling for; one that's finished or
+  /// cancelled is not.
+  bool get _shouldPoll {
+    final status = state.activeTrip?.status;
+    if (status == null) return false;
+    return status == TripStatus.requested || status.isActive;
+  }
+
+  /// One round of the safety net: the trip itself, plus the car's position once
+  /// there is a driver to have one.
+  Future<void> _catchUp() async {
+    await refreshActiveTrip();
+    final status = state.activeTrip?.status;
+    if (status != null && status.isActive) await refreshDriverLocation();
+  }
+
+  /// Call when the app returns to the foreground. Android freezes sockets on a
+  /// backgrounded app, and a rider waiting for a car is backgrounded by
+  /// definition — so resuming has to re-establish realtime *and* re-read the
+  /// trip, not assume the connection survived.
+  Future<void> appResumed() async {
+    final trip = state.activeTrip;
+    if (trip == null || !_shouldPoll) return;
+    await _catchUp();
+    await _startRealtime(trip.id);
   }
 
   /// Attaches to a trip that's already running — the app was reopened mid-ride,
@@ -183,32 +278,56 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   /// driver's position over REST (every push so far has been missed) and then
   /// joins the group for the rest.
   Future<void> resumeTrip(Trip trip) async {
-    state = state.copyWith(activeTrip: trip, clearError: true);
-    await _startRealtime(trip.id);
+    // If the trip is missing driver info, fetch the full trip entity
+    Trip fullTrip = trip;
+    if (fullTrip.driver == null && fullTrip.status.isActive) {
+      try {
+        fullTrip = await _repo.getTrip(trip.id);
+      } catch (_) {}
+    }
+    if (mounted) {
+      state = state.copyWith(clearError: true);
+      _applyTrip(fullTrip);
+    }
+    await _startRealtime(fullTrip.id);
     await refreshDriverLocation();
   }
 
   /// Looks for a trip still in flight and re-attaches to it. Called on app
-  /// start: without this, a rider whose app was killed mid-ride (which Android
+  /// start or login: without this, a rider whose app was killed mid-ride (which Android
   /// does freely to a backgrounded app) comes back to a "Where to?" home screen
-  /// while their driver is en route, with no way back to the tracking map.
+  /// while their driver is en route or in progress, with no way back to the tracking map.
   ///
   /// Returns the resumed trip, or null if there's nothing in flight.
   Future<Trip?> resumeActiveTrip() async {
-    if (state.activeTrip != null) return state.activeTrip;
+    if (state.activeTrip != null &&
+        (state.activeTrip!.status == TripStatus.requested || state.activeTrip!.status.isActive)) {
+      unawaited(_startRealtime(state.activeTrip!.id));
+      unawaited(refreshDriverLocation());
+      return state.activeTrip;
+    }
     try {
+      // 1. Direct active trip lookup (returns full driver/vehicle/PIN info)
+      final direct = await _repo.getActiveTrip();
+      if (direct != null && (direct.status == TripStatus.requested || direct.status.isActive)) {
+        await resumeTrip(direct);
+        return state.activeTrip ?? direct;
+      }
+
+      // 2. Fallback: check trip history and fetch full details
       final trips = await _repo.tripHistory();
       final live = trips.where((t) =>
-          t.status == TripStatus.requested || t.status.isActive);
+          t.status == TripStatus.requested || t.status.isActive).toList();
       if (live.isEmpty) return null;
 
       // Most recently booked wins if the backend ever hands back more than one.
-      final trip = live.reduce((a, b) =>
+      final newest = live.reduce((a, b) =>
           (a.createdAt ?? DateTime(0)).isAfter(b.createdAt ?? DateTime(0))
               ? a
               : b);
+      final trip = await _repo.getTrip(newest.id);
       await resumeTrip(trip);
-      return trip;
+      return state.activeTrip ?? trip;
     } catch (_) {
       // Offline or the call failed — home is a safe place to land.
       return null;
@@ -251,9 +370,45 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     try {
       final trip = Trip.fromJson(Map<String, dynamic>.from(raw));
       if (trip.id != state.activeTrip?.id) return;
-      if (mounted) state = state.copyWith(activeTrip: trip);
+      _applyTrip(trip);
     } catch (e) {
       if (kDebugMode) debugPrint('[ride] bad tripUpdated payload: $e');
+    }
+  }
+
+  /// The one place an updated trip enters state, whichever path found it — a
+  /// realtime push, a safety-net poll, or a resume. Milestone alerts hang off
+  /// this single funnel rather than off the push handler, so the rider is told
+  /// their driver has arrived even when the push never came.
+  void _applyTrip(Trip trip) {
+    if (!mounted) return;
+    final before = state.activeTrip?.status;
+    state = state.copyWith(activeTrip: trip);
+
+    if (before != trip.status) {
+      _announce(trip);
+      // A finished trip has nothing left to poll for; a newly-live one does.
+      _startWatchdog();
+    }
+  }
+
+  /// Raises the on-device alert for a milestone the rider must not miss. Guarded
+  /// per trip, so re-reading the same status (a poll and a push arriving
+  /// together, or the app being reopened) announces it once only.
+  void _announce(Trip trip) {
+    final alerts = _ref.read(tripAlertsProvider);
+    switch (trip.status) {
+      case TripStatus.driverAssigned:
+        if (_assignAlerted.add(trip.id)) {
+          unawaited(alerts.driverOnTheWay(driverName: trip.driver?.name));
+        }
+      case TripStatus.driverArrived:
+        if (_arrivalAlerted.add(trip.id)) {
+          unawaited(alerts.driverArrived(
+              driverName: trip.driver?.name, pin: trip.pin));
+        }
+      default:
+        break;
     }
   }
 
@@ -276,14 +431,19 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     }
   }
 
-  Future<void> _stopRealtime() => _rt.disconnect();
+  Future<void> _stopRealtime() {
+    _stopWatchdog();
+    return _rt.disconnect();
+  }
 
+  /// Re-reads the trip over REST. This is the safety net's workhorse — driven by
+  /// [_startWatchdog] and by [appResumed], not left to screens to remember.
   Future<void> refreshActiveTrip() async {
     final id = state.activeTrip?.id;
     if (id == null) return;
     try {
       final trip = await _repo.getTrip(id);
-      state = state.copyWith(activeTrip: trip);
+      _applyTrip(trip);
     } catch (_) {
       // Keep the last known trip on a transient poll failure.
     }
@@ -295,7 +455,8 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final trip = await _repo.cancelTrip(id, reason: reason);
-      state = state.copyWith(isLoading: false, activeTrip: trip);
+      state = state.copyWith(isLoading: false);
+      _applyTrip(trip);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: friendlyError(e));
     }
@@ -379,6 +540,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
 
   @override
   void dispose() {
+    _stopWatchdog();
     _rt.disconnect();
     super.dispose();
   }

@@ -24,6 +24,13 @@ class TrackingScreen extends ConsumerStatefulWidget {
 
 class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   TripEta? _eta;
+  final ScrollController _sheetScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _sheetScroll.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -85,6 +92,12 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     // navigates itself (see `confirmCancelRide` below).
     ref.listen<RideFlowState>(rideFlowProvider, (previous, next) {
       final status = next.activeTrip?.status;
+      if (status == TripStatus.driverArrived &&
+          previous?.activeTrip?.status != TripStatus.driverArrived) {
+        // The sheet may be scrolled down from reading the driver's details;
+        // bring the PIN back into view rather than trusting the rider to find it.
+        if (_sheetScroll.hasClients) _sheetScroll.jumpTo(0);
+      }
       if (status == TripStatus.inProgress) {
         context.go('/in-progress');
       } else if (status != null &&
@@ -110,7 +123,9 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
               destination: LatLng(trip.pickup.lat, trip.pickup.lng),
               destinationLabel: trip.pickup.label,
               isPickup: true,
-              onEta: (value) => setState(() => _eta = value),
+              onEta: (value) {
+                if (mounted) setState(() => _eta = value);
+              },
             ),
           ),
           // Floating status pill.
@@ -127,7 +142,9 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Brand.ink,
+                    // Arrival is the one moment on this screen the rider has to
+                    // act on, so it doesn't share the neutral en-route pill.
+                    color: arrived ? Brand.green : Brand.ink,
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: const [
                       BoxShadow(color: Color(0x5216202E), blurRadius: 18, offset: Offset(0, 6)),
@@ -135,7 +152,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Ico('car', size: 22, color: Brand.lime),
+                      Ico('car', size: 22, color: arrived ? Colors.white : Brand.lime),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,10 +187,20 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
             alignment: Alignment.bottomCenter,
             child: McSheet(
               child: SingleChildScrollView(
+                controller: _sheetScroll,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Once the driver is at the kerb the PIN is the only thing
+                    // the rider needs, so it moves to the top of the sheet. It
+                    // used to sit below the driver card and the meet-at row,
+                    // i.e. below the fold on a small phone, at exactly the
+                    // moment someone is being asked to read it out.
+                    if (arrived && trip.pin != null) ...[
+                      _PinCard(pin: trip.pin!, arrived: true),
+                      const SizedBox(height: 12),
+                    ],
                     DriverCard(
                       driver: trip.driver,
                       actions: Row(
@@ -224,8 +251,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                     // The driver keys this in before setting off, so it has to
                     // be readable at arm's length in a car window — not a 12pt
                     // aside. Hidden when the trip predates PINs.
-                    if (trip.pin case final pin?) ...[
-                      _PinCard(pin: pin, arrived: arrived),
+                    if (trip.pin case final pin? when !arrived) ...[
+                      _PinCard(pin: pin, arrived: false),
                       const SizedBox(height: 12),
                     ],
                     McGhostButton(

@@ -31,6 +31,10 @@ abstract class RideRepository {
 
   Future<Trip> getTrip(String id);
 
+  /// The caller's currently active trip (requested, assigned, arrived, or in-progress)
+  /// with full driver details, vehicle info, and meet-up PIN, or null if none.
+  Future<Trip?> getActiveTrip();
+
   /// The assigned driver's last known position, or null if there's nothing to
   /// show yet. Seeds the tracking map before the realtime pushes take over.
   Future<DriverLocation?> driverLocation(String tripId);
@@ -129,6 +133,21 @@ class DioRideRepository implements RideRepository {
   Future<Trip> getTrip(String id) => apiCall(() async {
         final res = await _dio.get<Map<String, dynamic>>('$_base/$id');
         return Trip.fromJson(res.data!);
+      });
+
+  @override
+  Future<Trip?> getActiveTrip() => apiCall(() async {
+        try {
+          final res = await _dio.get<Map<String, dynamic>>('$_base/active');
+          final data = res.data;
+          if (data == null || data.isEmpty) return null;
+          return Trip.fromJson(data);
+        } on DioException catch (e) {
+          if (e.response?.statusCode == 204 || e.response?.statusCode == 404) {
+            return null;
+          }
+          rethrow;
+        }
       });
 
   @override

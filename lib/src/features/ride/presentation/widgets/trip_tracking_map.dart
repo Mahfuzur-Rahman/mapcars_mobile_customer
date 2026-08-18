@@ -83,8 +83,45 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
   static const _fallback =
       CameraPosition(target: LatLng(51.5074, -0.1278), zoom: 12);
 
+  /// ~12 fps. Enough for a car to look like it is driving rather than
+  /// teleporting, cheap enough to rebuild two markers on. Same cadence the
+  /// home-screen nearby-cars layer already runs at.
+  static const _frameInterval = Duration(milliseconds: 80);
+
+  /// A fix arrives roughly every 5s (the driver app's push cadence), so glide
+  /// over slightly less than that: the car settles just before the next fix
+  /// instead of being cut off mid-slide.
+  static const _glideDuration = Duration(milliseconds: 4500);
+
+  /// One full breath of the halo.
+  static const _pulsePeriod = Duration(milliseconds: 1600);
+
+  /// A position change bigger than this isn't driving — it's a reconnect or a
+  /// GPS glitch. Snap, rather than sliding the car across half of London.
+  static const _snapMeters = 400.0;
+
+  /// Below this, movement is GPS noise: keep the last heading rather than
+  /// spinning a stationary car on the spot.
+  static const _headingMeters = 6.0;
+
   GoogleMapController? _controller;
   BitmapDescriptor? _carIcon;
+
+  /// Pre-rendered halo frames, cycled to animate the glow. Google Maps markers
+  /// take a static bitmap, so an animated marker *is* a sequence of bitmaps —
+  /// rendered once here rather than per frame.
+  List<BitmapDescriptor> _pulseFrames = const [];
+
+  Timer? _ticker;
+
+  /// Where the car is drawn right now, which trails the newest fix while the
+  /// glide plays out. The route, ETA and camera all still key off the real fix
+  /// ([widget.driver]); only the marker is interpolated.
+  LatLng? _shownAt;
+  LatLng? _glideFrom;
+  LatLng? _glideTo;
+  DateTime? _glideStart;
+  double _shownHeading = 0;
 
   DirectionsResult? _route;
   LatLng? _routeFrom;
@@ -103,7 +140,70 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     drawCarIcon().then((icon) {
       if (mounted) setState(() => _carIcon = icon);
     });
-    _syncRoute();
+    unawaited(_buildPulseFrames());
+
+    final at = widget.driver;
+    if (at != null) {
+      _shownAt = LatLng(at.lat, at.lng);
+      _shownHeading = at.heading ?? 0;
+    }
+    _ticker = Timer.periodic(_frameInterval, (_) => _onFrame());
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncRoute();
+    });
+  }
+
+  /// Renders one beat of the halo as a short strip of bitmaps. Eight frames is
+  /// enough for the ping to read as continuous at this size.
+  Future<void> _buildPulseFrames() async {
+    const count = 8;
+    final frames = <BitmapDescriptor>[];
+    for (var i = 0; i < count; i++) {
+      frames.add(await drawGlowingCarIcon(pulse: i / count));
+    }
+    if (mounted) setState(() => _pulseFrames = frames);
+  }
+
+  /// Advances both animations: the glide toward the newest fix, and the halo.
+  void _onFrame() {
+    if (!mounted) return;
+    final glide = _glideTo;
+    final from = _glideFrom;
+    final startedAt = _glideStart;
+
+    if (glide != null && from != null && startedAt != null) {
+      final elapsed = DateTime.now().difference(startedAt);
+      final t =
+          (elapsed.inMilliseconds / _glideDuration.inMilliseconds).clamp(0.0, 1.0);
+      _shownAt = LatLng(
+        from.latitude + (glide.latitude - from.latitude) * t,
+        from.longitude + (glide.longitude - from.longitude) * t,
+      );
+      if (t >= 1.0) {
+        _glideFrom = null;
+        _glideTo = null;
+        _glideStart = null;
+      }
+    }
+
+    // Only repaint when there is actually something moving. Without this guard
+    // the map rebuilt 12×/second for the whole of a ride — including on the
+    // in-progress screen, which draws no halo at all.
+    final animatingHalo = _pulseFrames.isNotEmpty &&
+        widget.isPickup &&
+        widget.driver != null &&
+        widget.driver!.isStale != true;
+    if (animatingHalo || _glideTo != null) setState(() {});
+  }
+
+  /// Frame index for the halo, derived from the wall clock so the beat is
+  /// steady even if a frame is dropped.
+  BitmapDescriptor? get _pulseIcon {
+    if (_pulseFrames.isEmpty) return null;
+    final ms = DateTime.now().millisecondsSinceEpoch % _pulsePeriod.inMilliseconds;
+    final i = (ms / _pulsePeriod.inMilliseconds * _pulseFrames.length).floor();
+    return _pulseFrames[i % _pulseFrames.length];
   }
 
   @override
@@ -116,11 +216,54 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
       _routeFetchedAt = null;
       _lastFitAt = null;
     }
-    _syncRoute();
+    _absorbFix(old.driver, widget.driver);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _syncRoute();
+    });
+  }
+
+  /// Fold a new driver fix into the glide, so the car drives to it over the next
+  /// few seconds instead of jumping. Without this the rider sees a car that
+  /// stands still and then teleports, which reads as a broken map rather than as
+  /// someone driving toward them.
+  void _absorbFix(DriverLocation? before, DriverLocation? now) {
+    if (now == null) {
+      _shownAt = null;
+      _glideFrom = _glideTo = null;
+      _glideStart = null;
+      return;
+    }
+    final target = LatLng(now.lat, now.lng);
+    final current = _shownAt;
+
+    if (current == null || _metersBetween(current, target) > _snapMeters) {
+      // First fix, or a jump too big to be driving — take it as read.
+      _shownAt = target;
+      _glideFrom = _glideTo = null;
+      _glideStart = null;
+      _shownHeading = now.heading ?? _shownHeading;
+      return;
+    }
+    if (before != null && before.lat == now.lat && before.lng == now.lng) {
+      return; // same fix re-delivered (push and poll agreeing) — nothing to do
+    }
+
+    // Heading: trust the device when it reports one, otherwise face the way the
+    // car actually travelled, so a moving car never points stubbornly north.
+    final travelled = _metersBetween(current, target);
+    _shownHeading = now.heading ??
+        (travelled >= _headingMeters
+            ? _bearing(current, target)
+            : _shownHeading);
+
+    _glideFrom = current;
+    _glideTo = target;
+    _glideStart = DateTime.now();
   }
 
   @override
   void dispose() {
+    _ticker?.cancel();
     _controller?.dispose();
     super.dispose();
   }
@@ -175,25 +318,29 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     if (onEta == null) return;
 
     final route = _route;
+    final TripEta eta;
     if (route == null || route.points.length < 2) {
       final meters = _metersBetween(at, widget.destination) * 1.35;
-      onEta(TripEta(
+      eta = TripEta(
         remainingMeters: meters,
         remainingSeconds: (meters / 1609.344 / 18.0 * 3600).round(),
         totalMeters: meters,
-      ));
-      return;
+      );
+    } else {
+      final remaining = _remainingAlongRoute(at, route.points);
+      final total = route.distanceMeters.toDouble();
+      final ratio = total <= 0 ? 0.0 : (remaining / total).clamp(0.0, 1.0);
+
+      eta = TripEta(
+        remainingMeters: remaining,
+        remainingSeconds: (route.durationSeconds * ratio).round(),
+        totalMeters: total,
+      );
     }
 
-    final remaining = _remainingAlongRoute(at, route.points);
-    final total = route.distanceMeters.toDouble();
-    final ratio = total <= 0 ? 0.0 : (remaining / total).clamp(0.0, 1.0);
-
-    onEta(TripEta(
-      remainingMeters: remaining,
-      remainingSeconds: (route.durationSeconds * ratio).round(),
-      totalMeters: total,
-    ));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) onEta(eta);
+    });
   }
 
   double _remainingAlongRoute(LatLng at, List<LatLng> points) {
@@ -263,9 +410,18 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
   @override
   Widget build(BuildContext context) {
     final driver = widget.driver;
-    final driverAt = driver == null ? null : LatLng(driver.lat, driver.lng);
+    // The drawn position, mid-glide toward the newest fix.
+    final driverAt = driver == null ? null : (_shownAt ?? LatLng(driver.lat, driver.lng));
     final ahead = _polylineAhead(driverAt);
     final legColour = widget.isPickup ? Brand.green : Brand.blue;
+
+    // Halo only while the car is coming *to* the rider. Once they're on board it
+    // is their own car and needs no picking out, and a permanent ping on the
+    // in-progress screen is just noise.
+    final highlight = widget.isPickup && driver?.isStale != true;
+    final carIcon = (highlight ? _pulseIcon : null) ??
+        _carIcon ??
+        BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
 
     return Stack(
       children: [
@@ -306,16 +462,14 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
                 Marker(
                   markerId: const MarkerId('driver'),
                   position: driverAt,
-                  rotation: driver!.heading ?? 0,
+                  rotation: _shownHeading,
                   anchor: const Offset(0.5, 0.5),
                   flat: true,
                   zIndexInt: 2,
                   // Dim the car once its fix is stale, so a driver whose phone
                   // dropped off doesn't look like they're parked mid-road.
-                  alpha: driver.isStale ? 0.45 : 1.0,
-                  icon: _carIcon ??
-                      BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueAzure),
+                  alpha: driver!.isStale ? 0.45 : 1.0,
+                  icon: carIcon,
                 ),
             },
             polylines: {
@@ -400,3 +554,14 @@ double _metersBetween(LatLng a, LatLng b) {
 }
 
 double _radians(double degrees) => degrees * math.pi / 180.0;
+
+/// Compass bearing from [a] to [b], in degrees — the direction the car is
+/// actually travelling, used when the device reports no heading.
+double _bearing(LatLng a, LatLng b) {
+  final lat1 = _radians(a.latitude), lat2 = _radians(b.latitude);
+  final dLng = _radians(b.longitude - a.longitude);
+  final y = math.sin(dLng) * math.cos(lat2);
+  final x = math.cos(lat1) * math.sin(lat2) -
+      math.sin(lat1) * math.cos(lat2) * math.cos(dLng);
+  return (math.atan2(y, x) * 180.0 / math.pi + 360.0) % 360.0;
+}

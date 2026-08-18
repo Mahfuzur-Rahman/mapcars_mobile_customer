@@ -3,6 +3,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+/// Footprint of the drawn car, in canvas units. The glowing variant pads around
+/// this rather than guessing.
+const carIconWidth = 64.0;
+const carIconHeight = 128.0;
+
 /// Draws an Uber-style top-down sedan map marker (nose pointing north):
 /// curved body with a side sheen, tinted glass, roof panel, mirrors and lights.
 /// Shared by the live nearby-cars layer so real drivers render like the mockup.
@@ -11,6 +16,81 @@ Future<BitmapDescriptor> drawCarIcon([Color body = const Color(0xFF15181C)]) asy
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
 
+  _paintCar(canvas, body);
+
+  final image = await recorder.endRecording().toImage(w, h);
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  return BitmapDescriptor.bytes(
+    bytes!.buffer.asUint8List(),
+    imagePixelRatio: 3.0,
+  );
+}
+
+/// The rider's own driver, drawn with a pulsing halo so the car coming for them
+/// is instantly distinguishable from the scenery cars on the same map.
+///
+/// [pulse] runs 0→1 over one beat. The halo grows and fades across that beat, so
+/// cycling pre-rendered frames reads as a soft radar ping rather than a blink —
+/// a marker that vanishes on the off-beat is easy to lose track of, which
+/// defeats the point of highlighting it.
+Future<BitmapDescriptor> drawGlowingCarIcon({
+  Color body = const Color(0xFF15181C),
+  Color glow = const Color(0xFF0B7DC0),
+  required double pulse,
+}) async {
+  // Padded canvas: the halo needs room around the car, and the marker is
+  // centre-anchored so the extra space doesn't shift the car off its fix.
+  const pad = 56.0;
+  final w = (carIconWidth + pad * 2).round();
+  final h = (carIconHeight + pad * 2).round();
+
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  final centre = Offset(w / 2, h / 2);
+
+  // Ease the beat so the ping accelerates outward and settles, instead of
+  // sweeping at a constant rate.
+  final t = Curves.easeOut.transform(pulse.clamp(0.0, 1.0));
+
+  // Outward ring — the travelling edge of the ping.
+  final ringRadius = 34.0 + 46.0 * t;
+  canvas.drawCircle(
+    centre,
+    ringRadius,
+    Paint()
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6.0 * (1 - t)
+      ..color = glow.withValues(alpha: 0.55 * (1 - t)),
+  );
+
+  // Soft filled bloom that stays under the car for the whole beat, so the marker
+  // is never un-highlighted.
+  canvas.drawCircle(
+    centre,
+    30.0 + 10.0 * t,
+    Paint()
+      ..isAntiAlias = true
+      ..color = glow.withValues(alpha: 0.26 - 0.10 * t)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12),
+  );
+
+  canvas.save();
+  canvas.translate(pad, pad);
+  _paintCar(canvas, body);
+  canvas.restore();
+
+  final image = await recorder.endRecording().toImage(w, h);
+  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+  return BitmapDescriptor.bytes(
+    bytes!.buffer.asUint8List(),
+    imagePixelRatio: 3.0,
+  );
+}
+
+/// Paints the sedan at the canvas origin, occupying
+/// [carIconWidth] × [carIconHeight].
+void _paintCar(Canvas canvas, Color body) {
   Color shade(Color c, double amount) =>
       Color.lerp(c, amount >= 0 ? Colors.white : Colors.black, amount.abs())!;
 
@@ -123,12 +203,5 @@ Future<BitmapDescriptor> drawCarIcon([Color body = const Color(0xFF15181C)]) asy
     RRect.fromRectAndRadius(
         const Rect.fromLTWH(34, 117, 8, 3.5), const Radius.circular(2)),
     taillight,
-  );
-
-  final image = await recorder.endRecording().toImage(w, h);
-  final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-  return BitmapDescriptor.bytes(
-    bytes!.buffer.asUint8List(),
-    imagePixelRatio: 3.0,
   );
 }

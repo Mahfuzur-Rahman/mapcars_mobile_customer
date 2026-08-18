@@ -7,17 +7,56 @@ import '../../../core/widgets/map_background.dart';
 import '../../ride/models/driver_info.dart';
 import '../../ride/models/trip.dart';
 
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
+
+import '../services/receipt_pdf_builder.dart';
+
 /// A real trip receipt. Opened from the Activity list (and the completed
 /// screen) with the [Trip] passed as the route's `extra`. Falls back to an
 /// empty state if navigated to directly without a trip.
-class ReceiptScreen extends StatelessWidget {
+class ReceiptScreen extends StatefulWidget {
   const ReceiptScreen({super.key, this.trip});
 
   final Trip? trip;
 
   @override
+  State<ReceiptScreen> createState() => _ReceiptScreenState();
+}
+
+class _ReceiptScreenState extends State<ReceiptScreen> {
+  bool _isGenerating = false;
+
+  Future<void> _downloadReceipt(Trip trip) async {
+    if (_isGenerating) return;
+    setState(() => _isGenerating = true);
+    try {
+      final docName =
+          'MapCars-Receipt-${trip.id.length >= 8 ? trip.id.substring(0, 8) : trip.id}.pdf';
+
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) => ReceiptPdfBuilder.buildPdf(trip),
+        name: docName,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate receipt: $e'),
+            backgroundColor: Brand.errorText,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGenerating = false);
+      }
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final t = trip;
+    final t = widget.trip;
     if (t == null) {
       return Scaffold(
         backgroundColor: Brand.bg,
@@ -146,8 +185,12 @@ class ReceiptScreen extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  const McGhostButton('Download receipt', icon: 'receipt'),
+                  const SizedBox(height: 16),
+                  McGhostButton(
+                    _isGenerating ? 'Preparing receipt…' : 'Download receipt',
+                    icon: 'receipt',
+                    onTap: _isGenerating ? null : () => _downloadReceipt(t),
+                  ),
                 ],
               ),
             ),

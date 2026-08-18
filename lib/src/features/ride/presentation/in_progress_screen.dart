@@ -67,7 +67,9 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
               destination: LatLng(trip.dropoff.lat, trip.dropoff.lng),
               destinationLabel: trip.dropoff.label,
               isPickup: false,
-              onEta: (value) => setState(() => _eta = value),
+              onEta: (value) {
+                if (mounted) setState(() => _eta = value);
+              },
             ),
           ),
           // Floating nav + status pill.

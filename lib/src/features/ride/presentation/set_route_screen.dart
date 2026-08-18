@@ -203,10 +203,17 @@ class _SetRouteScreenState extends ConsumerState<SetRouteScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            _error!,
-            textAlign: TextAlign.center,
-            style: tw(FontWeight.w700, 14, Brand.sub),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _error!,
+                textAlign: TextAlign.center,
+                style: tw(FontWeight.w700, 14, Brand.sub),
+              ),
+              const SizedBox(height: 16),
+              _SetOnMapRow(onTap: () => context.push('/pick-on-map', extra: _origin)),
+            ],
           ),
         ),
       );
@@ -215,49 +222,56 @@ class _SetRouteScreenState extends ConsumerState<SetRouteScreen> {
       return _buildRecents();
     }
     if (_results.isEmpty) {
-      return Center(
-        child: Text('No matches', style: tw(FontWeight.w700, 14, Brand.faint)),
+      return _NoMatchesOnMapCard(
+        onSetPin: () => context.push('/pick-on-map', extra: _origin),
       );
     }
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
-      itemCount: _results.length,
-      itemBuilder: (context, i) => _SuggestionRow(
-        prediction: _results[i],
-        onTap: () => _select(_results[i]),
-      ),
+      itemCount: _results.length + 1,
+      itemBuilder: (context, i) {
+        if (i == 0) {
+          return _SetOnMapRow(
+            onTap: () => context.push('/pick-on-map', extra: _origin),
+          );
+        }
+        final prediction = _results[i - 1];
+        return _SuggestionRow(
+          prediction: prediction,
+          onTap: () => _select(prediction),
+        );
+      },
     );
   }
 
   /// Empty-query state: the rider's recent destinations (most-recent first),
-  /// or a hint if there are none yet.
+  /// with a prominent "Set pin on map" option.
   Widget _buildRecents() {
     final recents = ref.watch(searchHistoryProvider);
-    if (recents.isEmpty) {
-      return Center(
-        child: Text('Search for a destination',
-            style: tw(FontWeight.w700, 14, Brand.faint)),
-      );
-    }
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Recent', style: tw(FontWeight.w800, 13, Brand.sub)),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: () => ref.read(searchHistoryProvider.notifier).clear(),
-                child: Text('Clear', style: tw(FontWeight.w800, 13, Brand.blue)),
-              ),
-            ],
-          ),
+        _SetOnMapRow(
+          onTap: () => context.push('/pick-on-map', extra: _origin),
         ),
-        for (final place in recents)
-          _RecentRow(place: place, onTap: () => _openRecent(place)),
+        if (recents.isNotEmpty) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('Recent', style: tw(FontWeight.w800, 13, Brand.sub)),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => ref.read(searchHistoryProvider.notifier).clear(),
+                  child: Text('Clear', style: tw(FontWeight.w800, 13, Brand.blue)),
+                ),
+              ],
+            ),
+          ),
+          for (final place in recents)
+            _RecentRow(place: place, onTap: () => _openRecent(place)),
+        ],
       ],
     );
   }
@@ -342,6 +356,90 @@ class _SuggestionRow extends StatelessWidget {
               ),
             ),
             const Ico('chevR', size: 18, color: Brand.faint),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SetOnMapRow extends StatelessWidget {
+  const _SetOnMapRow({this.onTap});
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Brand.blue.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Brand.blue.withOpacity(0.18)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Brand.blue,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Ico('pin', size: 18, color: Colors.white),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Set pin on map', style: tw(FontWeight.w800, 14.5, Brand.blue)),
+                  const SizedBox(height: 2),
+                  Text('Drag & pinpoint your exact location',
+                      style: tw(FontWeight.w600, 12, Brand.sub)),
+                ],
+              ),
+            ),
+            const Ico('chevR', size: 18, color: Brand.blue),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoMatchesOnMapCard extends StatelessWidget {
+  const _NoMatchesOnMapCard({this.onSetPin});
+  final VoidCallback? onSetPin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: const BoxDecoration(
+                color: Brand.fill,
+                shape: BoxShape.circle,
+              ),
+              child: const Ico('search', size: 28, color: Brand.sub),
+            ),
+            const SizedBox(height: 16),
+            Text('No matching suggestions', style: tw(FontWeight.w800, 16)),
+            const SizedBox(height: 6),
+            Text(
+              "Can't find this address in suggestions? Point and drop a pin on the map to set your exact spot.",
+              textAlign: TextAlign.center,
+              style: tw(FontWeight.w600, 13, Brand.sub),
+            ),
+            const SizedBox(height: 20),
+            McButton('Set pin on map', onTap: onSetPin),
           ],
         ),
       ),

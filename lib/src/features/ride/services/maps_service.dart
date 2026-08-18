@@ -105,6 +105,64 @@ class GoogleMapsService {
     }
   }
 
+  /// Reverse geocodes coordinates to a human-readable [Place].
+  Future<Place> reverseGeocode(LatLng latLng) async {
+    _ensureKey();
+    try {
+      final res = await _dio.get<Map<String, dynamic>>(
+        '/geocode/json',
+        queryParameters: {
+          'latlng': '${latLng.latitude},${latLng.longitude}',
+          'key': _key,
+        },
+      );
+      final data = res.data ?? const {};
+      final status = data['status'] as String? ?? 'UNKNOWN';
+      if (status == 'OK') {
+        final results = (data['results'] as List<dynamic>?) ?? [];
+        if (results.isNotEmpty) {
+          final first = results.first as Map<String, dynamic>;
+          final formatted = first['formatted_address'] as String? ?? '';
+          final components = (first['address_components'] as List<dynamic>?) ?? [];
+          String label = 'Selected location';
+          if (components.isNotEmpty) {
+            final firstComp = components.first as Map<String, dynamic>;
+            final longName = firstComp['long_name'] as String? ?? '';
+            if (longName.isNotEmpty) {
+              label = longName;
+            }
+          }
+          if ((label == 'Selected location' || label.length < 3) && formatted.isNotEmpty) {
+            label = formatted.split(',').first.trim();
+          }
+
+          return Place(
+            label: label,
+            address: formatted.isNotEmpty
+                ? formatted
+                : '${latLng.latitude.toStringAsFixed(5)}, ${latLng.longitude.toStringAsFixed(5)}',
+            lat: latLng.latitude,
+            lng: latLng.longitude,
+          );
+        }
+      }
+
+      return Place(
+        label: 'Selected location',
+        address: '${latLng.latitude.toStringAsFixed(5)}, ${latLng.longitude.toStringAsFixed(5)}',
+        lat: latLng.latitude,
+        lng: latLng.longitude,
+      );
+    } catch (_) {
+      return Place(
+        label: 'Selected location',
+        address: '${latLng.latitude.toStringAsFixed(5)}, ${latLng.longitude.toStringAsFixed(5)}',
+        lat: latLng.latitude,
+        lng: latLng.longitude,
+      );
+    }
+  }
+
   /// Driving directions between two points.
   Future<DirectionsResult> directions({
     required LatLng origin,

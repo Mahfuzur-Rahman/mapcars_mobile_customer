@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../config/app_config.dart';
 import '../network/api_client.dart';
@@ -30,6 +31,7 @@ import '../../features/ride/presentation/home_screen.dart';
 import '../../features/ride/models/place.dart';
 import '../../features/ride/models/trip.dart';
 import '../../features/ride/presentation/in_progress_screen.dart';
+import '../../features/ride/presentation/pick_on_map_screen.dart';
 import '../../features/ride/presentation/rate_screen.dart';
 import '../../features/ride/presentation/route_preview_screen.dart';
 import '../../features/ride/presentation/searching_screen.dart';
@@ -53,6 +55,7 @@ const List<StepRoute> kCustomerFlow = [
   StepRoute('/profile-setup', 'Profile setup', category: 'Onboarding'),
   StepRoute('/home', 'Home', category: 'Ride Flow', icon: 'home'),
   StepRoute('/set-route', 'Set route', category: 'Ride Flow'),
+  StepRoute('/pick-on-map', 'Set on map', category: 'Ride Flow'),
   StepRoute('/choose-ride', 'Choose ride', category: 'Ride Flow'),
   StepRoute('/confirm', 'Confirm', category: 'Ride Flow'),
   StepRoute('/searching', 'Searching', category: 'Ride Flow'),
@@ -153,6 +156,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         // Ride flow
         _r('/home', () => const HomeScreen()),
         _r('/set-route', () => const SetRouteScreen()),
+        GoRoute(
+          path: '/pick-on-map',
+          builder: (c, s) {
+            final origin = s.extra;
+            return PickOnMapScreen(
+              initialPosition: origin is LatLng ? origin : null,
+            );
+          },
+        ),
         GoRoute(
           path: '/route-preview',
           builder: (c, s) {
