@@ -29,7 +29,7 @@ class LiveNearbyCars {
     required this.onUpdate,
     required this.service,
     this.radiusMeters = 5000,
-    this.limit = 20,
+    this.limit = 50,
   });
 
   final void Function(Set<Marker> markers) onUpdate;
@@ -37,6 +37,10 @@ class LiveNearbyCars {
 
   /// Default query radius, used until the map tells us what it can actually see.
   final double radiusMeters;
+
+  /// How many cars one poll may return. Matches the API's default so a
+  /// zoomed-out map isn't quietly cut to an arbitrary handful of the drivers
+  /// actually on screen; the API caps it at 100.
   final int limit;
 
   static const _pollInterval = Duration(seconds: 5);
