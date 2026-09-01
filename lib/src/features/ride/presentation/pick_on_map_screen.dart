@@ -315,7 +315,7 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
                         border: Border.all(color: Colors.white, width: 3),
                         boxShadow: [
                           BoxShadow(
-                            color: Brand.blue.withOpacity(0.4),
+                            color: Brand.blue.withValues(alpha: 0.4),
                             blurRadius: _isMoving ? 16 : 8,
                             spreadRadius: _isMoving ? 3 : 1,
                             offset: Offset(0, _isMoving ? 12 : 4),
@@ -337,7 +337,7 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
                         width: 8,
                         height: 4,
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -363,7 +363,7 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
                     borderRadius: BorderRadius.circular(18),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 16,
                         offset: const Offset(0, 4),
                       ),
@@ -434,7 +434,7 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
                       borderRadius: BorderRadius.circular(18),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.10),
+                          color: Colors.black.withValues(alpha: 0.10),
                           blurRadius: 18,
                           offset: const Offset(0, 6),
                         ),
@@ -529,7 +529,7 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
+                    color: Colors.black.withValues(alpha: 0.12),
                     blurRadius: 24,
                     offset: const Offset(0, -6),
                   ),
@@ -545,7 +545,7 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Brand.blue.withOpacity(0.1),
+                          color: Brand.blue.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Ico('pin', size: 22, color: Brand.blue),

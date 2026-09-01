@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/mc.dart';
+import '../../../core/widgets/support_sheets.dart';
 import '../models/trip.dart';
 
 class CompletedScreen extends ConsumerWidget {
@@ -116,7 +117,14 @@ class CompletedScreen extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 10),
-                  const Expanded(child: McGhostButton('Get help', icon: 'msg', height: 48)),
+                  Expanded(
+                    child: McGhostButton(
+                      'Get help',
+                      icon: 'msg',
+                      height: 48,
+                      onTap: () => showHelpSupportSheet(context),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 18),

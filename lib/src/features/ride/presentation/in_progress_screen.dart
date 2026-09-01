@@ -9,6 +9,7 @@ import '../models/trip_status.dart';
 import '../providers/ride_flow_notifier.dart';
 import 'tracking_screen.dart' show confirmCancelRide;
 import 'widgets/driver_card.dart';
+import 'widgets/trip_safety.dart';
 import 'widgets/trip_tracking_map.dart';
 
 class InProgressScreen extends ConsumerStatefulWidget {
@@ -182,16 +183,41 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
                     const SizedBox(height: 14),
                     DriverCard(driver: trip.driver),
                     const SizedBox(height: 12),
-                    const Row(
+                    Row(
                       children: [
                         Expanded(
-                          child: McGhostButton('Safety', icon: 'shield'),
+                          child: McGhostButton(
+                            'Safety',
+                            icon: 'shield',
+                            onTap: () => showTripSafetySheet(
+                              context,
+                              ref,
+                              trip,
+                              driverPosition: driverPosition,
+                            ),
+                          ),
                         ),
-                        SizedBox(width: 10),
+                        const SizedBox(width: 10),
                         Expanded(
-                          child: McGhostButton('Share trip', icon: 'nav'),
+                          child: McGhostButton(
+                            'Share trip',
+                            icon: 'nav',
+                            onTap: () => shareTrip(
+                              trip,
+                              driverPosition: driverPosition,
+                            ),
+                          ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 10),
+                    // Chat existed but was reachable only while waiting for the
+                    // driver — the rider lost it the moment they got in the car,
+                    // which is when "I left my bag on the seat" happens.
+                    McGhostButton(
+                      'Message driver',
+                      icon: 'msg',
+                      onTap: () => context.push('/chat'),
                     ),
                     const SizedBox(height: 10),
                     McGhostButton(

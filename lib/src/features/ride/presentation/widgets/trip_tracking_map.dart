@@ -137,7 +137,10 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
   @override
   void initState() {
     super.initState();
-    drawCarIcon().then((icon) {
+    // Blue: this is the rider's *own* driver. The scenery cars around it are
+    // pearl (see live_nearby_cars), so the colour alone identifies it even at
+    // the zoom levels where the halo is off.
+    drawCarIcon(Brand.blue).then((icon) {
       if (mounted) setState(() => _carIcon = icon);
     });
     unawaited(_buildPulseFrames());
@@ -160,7 +163,7 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     const count = 8;
     final frames = <BitmapDescriptor>[];
     for (var i = 0; i < count; i++) {
-      frames.add(await drawGlowingCarIcon(pulse: i / count));
+      frames.add(await drawGlowingCarIcon(body: Brand.blue, pulse: i / count));
     }
     if (mounted) setState(() => _pulseFrames = frames);
   }

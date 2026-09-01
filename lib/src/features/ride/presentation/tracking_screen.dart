@@ -10,6 +10,7 @@ import '../models/trip.dart';
 import '../models/trip_status.dart';
 import '../providers/ride_flow_notifier.dart';
 import 'widgets/driver_card.dart';
+import 'widgets/trip_safety.dart';
 import 'widgets/trip_tracking_map.dart';
 
 class TrackingScreen extends ConsumerStatefulWidget {
@@ -236,8 +237,18 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                             ),
                           ),
                           const SizedBox(width: 10),
-                          const Expanded(
-                              child: _MiniButton(icon: 'shield', label: 'Safety')),
+                          Expanded(
+                            child: _MiniButton(
+                              icon: 'shield',
+                              label: 'Safety',
+                              onTap: () => showTripSafetySheet(
+                                context,
+                                ref,
+                                trip,
+                                driverPosition: driverPosition,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -401,20 +412,24 @@ class _MiniButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-      height: 46,
-      decoration: BoxDecoration(color: Brand.fill, borderRadius: BorderRadius.circular(13)),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Ico(icon, size: 18, color: Brand.ink),
-          const SizedBox(height: 1),
-          Text(label, style: tw(FontWeight.w800, 10.5, Brand.sub)),
-        ],
-      ),
+    return mcTapSemantics(
+      label: label,
+      enabled: onTap != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          height: 46,
+          decoration: BoxDecoration(color: Brand.fill, borderRadius: BorderRadius.circular(13)),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Ico(icon, size: 18, color: Brand.ink),
+              const SizedBox(height: 1),
+              Text(label, style: tw(FontWeight.w800, 10.5, Brand.sub)),
+            ],
+          ),
+        ),
       ),
     );
   }

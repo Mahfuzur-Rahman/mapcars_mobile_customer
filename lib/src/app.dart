@@ -5,6 +5,7 @@ import 'core/network/api_client.dart';
 import 'core/notifications/push_service.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/widgets/offline_banner.dart';
 import 'features/ride/providers/ride_flow_notifier.dart';
 
 class MapcarsApp extends ConsumerStatefulWidget {
@@ -59,6 +60,11 @@ class _MapcarsAppState extends ConsumerState<MapcarsApp>
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       routerConfig: ref.watch(routerProvider),
+      // Installed once here so every screen gets the offline bar — the screens
+      // where it matters most (waiting for a car, mid-ride) are the ones nobody
+      // would remember to opt in.
+      builder: (context, child) =>
+          OfflineBanner(child: child ?? const SizedBox.shrink()),
     );
   }
 }

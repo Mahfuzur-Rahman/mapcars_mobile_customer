@@ -4,6 +4,7 @@ import 'dart:ui' show Offset;
 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../core/theme/brand.dart';
 import 'car_icon.dart';
 import 'nearby_drivers_service.dart';
 
@@ -75,7 +76,10 @@ class LiveNearbyCars {
   /// Start (or re-center) polling around [center]. Safe to call again.
   Future<void> start(LatLng center) async {
     _center = center;
-    _icon ??= await drawCarIcon();
+    // Pearl: these are ambient scenery cars, so they must recede. The rider's
+    // own driver is drawn in Brand.blue by trip_tracking_map, and the contrast
+    // between the two is what makes "that one is mine" readable at a glance.
+    _icon ??= await drawCarIcon(Brand.carPearl);
     await _poll();
     _pollTimer?.cancel();
     _pollTimer = Timer.periodic(_pollInterval, (_) => _poll());
