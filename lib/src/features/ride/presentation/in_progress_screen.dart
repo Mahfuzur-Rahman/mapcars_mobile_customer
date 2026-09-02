@@ -39,6 +39,8 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
     final trip = widget.trip;
     final driverPosition =
         ref.watch(rideFlowProvider.select((s) => s.driverLocation));
+    final unread =
+        ref.watch(rideFlowProvider.select((s) => s.unreadMessages));
     final eta = _eta;
 
     // Move on once the driver marks the trip complete, or bounce home if it's
@@ -214,10 +216,16 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
                     // Chat existed but was reachable only while waiting for the
                     // driver — the rider lost it the moment they got in the car,
                     // which is when "I left my bag on the seat" happens.
-                    McGhostButton(
-                      'Message driver',
-                      icon: 'msg',
-                      onTap: () => context.push('/chat'),
+                    McBadge(
+                      count: unread,
+                      child: McGhostButton(
+                        'Message driver',
+                        icon: 'msg',
+                        semanticLabel: unread == 0
+                            ? 'Message driver'
+                            : 'Message driver, $unread unread',
+                        onTap: () => context.push('/chat'),
+                      ),
                     ),
                     const SizedBox(height: 10),
                     McGhostButton(

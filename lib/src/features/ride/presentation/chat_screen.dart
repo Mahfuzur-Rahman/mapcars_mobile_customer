@@ -28,15 +28,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _ctrl = TextEditingController();
   final _scroll = ScrollController();
 
+  /// Captured in initState: calling `ref.read` from `dispose` throws once the
+  /// scope is being torn down.
+  late final VoidCallback _markChatClosed;
+
   @override
   void initState() {
     super.initState();
+    final flow = ref.read(rideFlowProvider.notifier);
+    _markChatClosed = flow.markChatClosed;
+    // Reading the conversation is what marks it read — do it before the
+    // fetch, so a message landing mid-fetch does not raise a badge for a
+    // screen the rider is already looking at.
+    flow.markChatOpen();
     // Fetch existing messages when the screen opens.
-    Future.microtask(() => ref.read(rideFlowProvider.notifier).fetchMessages());
+    Future.microtask(flow.fetchMessages);
   }
 
   @override
   void dispose() {
+    _markChatClosed();
     _ctrl.dispose();
     _scroll.dispose();
     super.dispose();

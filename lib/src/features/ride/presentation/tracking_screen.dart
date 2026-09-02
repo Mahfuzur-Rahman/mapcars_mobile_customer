@@ -86,6 +86,8 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     final trip = widget.trip;
     final driverPosition =
         ref.watch(rideFlowProvider.select((s) => s.driverLocation));
+    final unread =
+        ref.watch(rideFlowProvider.select((s) => s.unreadMessages));
 
     // React to the real trip: move on once the driver starts the trip, or
     // bounce home if it's cancelled out from under the rider (e.g. the driver
@@ -230,10 +232,16 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: _MiniButton(
-                              icon: 'msg',
-                              label: 'Message',
-                              onTap: () => context.push('/chat'),
+                            child: McBadge(
+                              count: unread,
+                              child: _MiniButton(
+                                icon: 'msg',
+                                label: 'Message',
+                                semanticLabel: unread == 0
+                                    ? 'Message'
+                                    : 'Message, $unread unread',
+                                onTap: () => context.push('/chat'),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 10),
@@ -405,15 +413,20 @@ class _PinCard extends StatelessWidget {
 }
 
 class _MiniButton extends StatelessWidget {
-  const _MiniButton({required this.icon, required this.label, this.onTap});
+  const _MiniButton(
+      {required this.icon, required this.label, this.onTap, this.semanticLabel});
   final String icon;
   final String label;
   final VoidCallback? onTap;
 
+  /// Overrides what a screen reader announces — the unread count is not in the
+  /// visible label, and a bare badge digit announces nothing useful on its own.
+  final String? semanticLabel;
+
   @override
   Widget build(BuildContext context) {
     return mcTapSemantics(
-      label: label,
+      label: semanticLabel ?? label,
       enabled: onTap != null,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
