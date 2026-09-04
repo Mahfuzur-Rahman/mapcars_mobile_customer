@@ -5,6 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../../../core/geo/car_motion.dart';
+import '../../../../core/geo/geo_math.dart';
+import '../../../../core/geo/route_path.dart';
+import '../../../../core/location/location_service.dart';
 import '../../../../core/theme/brand.dart';
 import '../../models/directions_result.dart';
 import '../../models/driver_location.dart';
@@ -88,21 +92,8 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
   /// home-screen nearby-cars layer already runs at.
   static const _frameInterval = Duration(milliseconds: 80);
 
-  /// A fix arrives roughly every 5s (the driver app's push cadence), so glide
-  /// over slightly less than that: the car settles just before the next fix
-  /// instead of being cut off mid-slide.
-  static const _glideDuration = Duration(milliseconds: 4500);
-
   /// One full breath of the halo.
   static const _pulsePeriod = Duration(milliseconds: 1600);
-
-  /// A position change bigger than this isn't driving — it's a reconnect or a
-  /// GPS glitch. Snap, rather than sliding the car across half of London.
-  static const _snapMeters = 400.0;
-
-  /// Below this, movement is GPS noise: keep the last heading rather than
-  /// spinning a stationary car on the spot.
-  static const _headingMeters = 6.0;
 
   GoogleMapController? _controller;
   BitmapDescriptor? _carIcon;
@@ -114,16 +105,20 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
 
   Timer? _ticker;
 
-  /// Where the car is drawn right now, which trails the newest fix while the
-  /// glide plays out. The route, ETA and camera all still key off the real fix
-  /// ([widget.driver]); only the marker is interpolated.
-  LatLng? _shownAt;
-  LatLng? _glideFrom;
-  LatLng? _glideTo;
-  DateTime? _glideStart;
-  double _shownHeading = 0;
+  /// Owns where the car is *drawn*: it trails the newest fix while the glide
+  /// plays out, and follows the route polyline rather than cutting straight
+  /// across the gap between two GPS fixes. The ETA and the camera still key off
+  /// the real fix ([widget.driver]); only the marker is interpolated.
+  final CarMotion _motion = CarMotion();
+
+  /// Whether location permission is held. Gates this map's own blue dot — see
+  /// [LocationService.hasPermission] for why it can't just be `true`.
+  bool _hasPermission = false;
 
   DirectionsResult? _route;
+
+  /// [_route]'s polyline, prepared for projection and travel along.
+  RoutePath? _path;
   LatLng? _routeFrom;
   DateTime? _routeFetchedAt;
   bool _fetchingRoute = false;
@@ -147,10 +142,13 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
 
     final at = widget.driver;
     if (at != null) {
-      _shownAt = LatLng(at.lat, at.lng);
-      _shownHeading = at.heading ?? 0;
+      _motion.onFix(LatLng(at.lat, at.lng), reportedHeading: at.heading);
     }
     _ticker = Timer.periodic(_frameInterval, (_) => _onFrame());
+
+    const LocationService().hasPermission().then((granted) {
+      if (mounted && granted) setState(() => _hasPermission = true);
+    });
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _syncRoute();
@@ -168,27 +166,10 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     if (mounted) setState(() => _pulseFrames = frames);
   }
 
-  /// Advances both animations: the glide toward the newest fix, and the halo.
+  /// Repaints while anything is animating. [CarMotion] derives the car's
+  /// position from the clock on read, so there is nothing to advance here.
   void _onFrame() {
     if (!mounted) return;
-    final glide = _glideTo;
-    final from = _glideFrom;
-    final startedAt = _glideStart;
-
-    if (glide != null && from != null && startedAt != null) {
-      final elapsed = DateTime.now().difference(startedAt);
-      final t =
-          (elapsed.inMilliseconds / _glideDuration.inMilliseconds).clamp(0.0, 1.0);
-      _shownAt = LatLng(
-        from.latitude + (glide.latitude - from.latitude) * t,
-        from.longitude + (glide.longitude - from.longitude) * t,
-      );
-      if (t >= 1.0) {
-        _glideFrom = null;
-        _glideTo = null;
-        _glideStart = null;
-      }
-    }
 
     // Only repaint when there is actually something moving. Without this guard
     // the map rebuilt 12×/second for the whole of a ride — including on the
@@ -197,7 +178,7 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
         widget.isPickup &&
         widget.driver != null &&
         widget.driver!.isStale != true;
-    if (animatingHalo || _glideTo != null) setState(() {});
+    if (animatingHalo || _motion.isMoving) setState(() {});
   }
 
   /// Frame index for the halo, derived from the wall clock so the beat is
@@ -215,6 +196,8 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     if (old.destination != widget.destination) {
       // Pickup → drop-off: the whole route is a different journey.
       _route = null;
+      _path = null;
+      _motion.route = null;
       _routeFrom = null;
       _routeFetchedAt = null;
       _lastFitAt = null;
@@ -230,38 +213,13 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
   /// stands still and then teleports, which reads as a broken map rather than as
   /// someone driving toward them.
   void _absorbFix(DriverLocation? before, DriverLocation? now) {
-    if (now == null) {
-      _shownAt = null;
-      _glideFrom = _glideTo = null;
-      _glideStart = null;
-      return;
-    }
-    final target = LatLng(now.lat, now.lng);
-    final current = _shownAt;
-
-    if (current == null || _metersBetween(current, target) > _snapMeters) {
-      // First fix, or a jump too big to be driving — take it as read.
-      _shownAt = target;
-      _glideFrom = _glideTo = null;
-      _glideStart = null;
-      _shownHeading = now.heading ?? _shownHeading;
-      return;
-    }
+    if (now == null) return; // build() draws nothing while there is no driver
     if (before != null && before.lat == now.lat && before.lng == now.lng) {
-      return; // same fix re-delivered (push and poll agreeing) — nothing to do
+      // The same fix re-delivered (push and poll agreeing). Folding it in again
+      // would restart the glide and drag the observed cadence down with it.
+      return;
     }
-
-    // Heading: trust the device when it reports one, otherwise face the way the
-    // car actually travelled, so a moving car never points stubbornly north.
-    final travelled = _metersBetween(current, target);
-    _shownHeading = now.heading ??
-        (travelled >= _headingMeters
-            ? _bearing(current, target)
-            : _shownHeading);
-
-    _glideFrom = current;
-    _glideTo = target;
-    _glideStart = DateTime.now();
+    _motion.onFix(LatLng(now.lat, now.lng), reportedHeading: now.heading);
   }
 
   @override
@@ -289,11 +247,11 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     if (since != null && DateTime.now().difference(since) < _rerouteMinGap) {
       return false;
     }
-    return _metersBetween(at, _routeFrom!) >= _rerouteMeters;
+    return metersBetween(at, _routeFrom!) >= _rerouteMeters;
   }
 
   bool _shouldRefit(LatLng at) =>
-      _lastFitAt == null || _metersBetween(at, _lastFitAt!) >= _refitMeters;
+      _lastFitAt == null || metersBetween(at, _lastFitAt!) >= _refitMeters;
 
   Future<void> _fetchRoute(LatLng from) async {
     _fetchingRoute = true;
@@ -304,6 +262,10 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
       if (!mounted) return;
       setState(() {
         _route = route;
+        _path = RoutePath(route.points);
+        // Hand the car the new line to follow. CarMotion rebases onto where it
+        // is currently drawn, so a refetch never teleports it.
+        _motion.route = _path;
         _routeFrom = from;
         _routeFetchedAt = DateTime.now();
       });
@@ -321,16 +283,18 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     if (onEta == null) return;
 
     final route = _route;
+    final path = _path;
     final TripEta eta;
-    if (route == null || route.points.length < 2) {
-      final meters = _metersBetween(at, widget.destination) * 1.35;
+    if (route == null || path == null || !path.isUsable) {
+      final meters = metersBetween(at, widget.destination) * 1.35;
       eta = TripEta(
         remainingMeters: meters,
         remainingSeconds: (meters / 1609.344 / 18.0 * 3600).round(),
         totalMeters: meters,
       );
     } else {
-      final remaining = _remainingAlongRoute(at, route.points);
+      final remaining = path.remainingFrom(
+          path.project(at, nearAlongMeters: _motion.alongMeters).alongMeters);
       final total = route.distanceMeters.toDouble();
       final ratio = total <= 0 ? 0.0 : (remaining / total).clamp(0.0, 1.0);
 
@@ -344,28 +308,6 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) onEta(eta);
     });
-  }
-
-  double _remainingAlongRoute(LatLng at, List<LatLng> points) {
-    final i = _nearestIndex(at, points);
-    var total = _metersBetween(at, points[i]);
-    for (var j = i; j < points.length - 1; j++) {
-      total += _metersBetween(points[j], points[j + 1]);
-    }
-    return total;
-  }
-
-  int _nearestIndex(LatLng at, List<LatLng> points) {
-    var best = 0;
-    var bestDistance = double.infinity;
-    for (var i = 0; i < points.length; i++) {
-      final d = _metersBetween(at, points[i]);
-      if (d < bestDistance) {
-        bestDistance = d;
-        best = i;
-      }
-    }
-    return best;
   }
 
   Future<void> _fitBounds(LatLng driver) async {
@@ -400,21 +342,27 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
 
   /// The remaining leg only, so the line shortens as the driver closes in.
   List<LatLng> _polylineAhead(LatLng? driver) {
-    final route = _route;
-    if (route == null || route.points.isEmpty) {
+    final path = _path;
+    if (path == null || !path.isUsable) {
       // No route yet — a straight hint line beats an empty map.
       return driver == null ? const [] : [driver, widget.destination];
     }
-    if (driver == null) return route.points;
-    final i = _nearestIndex(driver, route.points);
-    return [driver, ...route.points.sublist(i)];
+    if (driver == null) return path.points;
+
+    // On the route, the line starts exactly under the car. Off it (a wrong
+    // turn, or a route gone stale), join the car to the road so the two do not
+    // read as unrelated.
+    final along = _motion.alongMeters;
+    if (along != null) return path.pointsFrom(along);
+    return [driver, ...path.pointsFrom(path.project(driver).alongMeters)];
   }
 
   @override
   Widget build(BuildContext context) {
     final driver = widget.driver;
     // The drawn position, mid-glide toward the newest fix.
-    final driverAt = driver == null ? null : (_shownAt ?? LatLng(driver.lat, driver.lng));
+    final driverAt =
+        driver == null ? null : (_motion.position ?? LatLng(driver.lat, driver.lng));
     final ahead = _polylineAhead(driverAt);
     final legColour = widget.isPickup ? Brand.green : Brand.blue;
 
@@ -433,7 +381,7 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
             initialCameraPosition: driverAt == null
                 ? CameraPosition(target: widget.destination, zoom: 14.5)
                 : _fallback,
-            myLocationEnabled: true,
+            myLocationEnabled: _hasPermission,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,
@@ -465,7 +413,7 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
                 Marker(
                   markerId: const MarkerId('driver'),
                   position: driverAt,
-                  rotation: _shownHeading,
+                  rotation: _motion.heading,
                   anchor: const Offset(0.5, 0.5),
                   flat: true,
                   zIndexInt: 2,
@@ -541,30 +489,4 @@ class _RefitPill extends StatelessWidget {
           ),
         ),
       );
-}
-
-/// Great-circle distance in metres.
-double _metersBetween(LatLng a, LatLng b) {
-  const earthRadius = 6371000.0;
-  final dLat = _radians(b.latitude - a.latitude);
-  final dLng = _radians(b.longitude - a.longitude);
-  final h = math.sin(dLat / 2) * math.sin(dLat / 2) +
-      math.cos(_radians(a.latitude)) *
-          math.cos(_radians(b.latitude)) *
-          math.sin(dLng / 2) *
-          math.sin(dLng / 2);
-  return 2 * earthRadius * math.atan2(math.sqrt(h), math.sqrt(1 - h));
-}
-
-double _radians(double degrees) => degrees * math.pi / 180.0;
-
-/// Compass bearing from [a] to [b], in degrees — the direction the car is
-/// actually travelling, used when the device reports no heading.
-double _bearing(LatLng a, LatLng b) {
-  final lat1 = _radians(a.latitude), lat2 = _radians(b.latitude);
-  final dLng = _radians(b.longitude - a.longitude);
-  final y = math.sin(dLng) * math.cos(lat2);
-  final x = math.cos(lat1) * math.sin(lat2) -
-      math.sin(lat1) * math.cos(lat2) * math.cos(dLng);
-  return (math.atan2(y, x) * 180.0 / math.pi + 360.0) % 360.0;
 }
