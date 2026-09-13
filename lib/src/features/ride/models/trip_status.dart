@@ -8,6 +8,7 @@ enum TripStatus {
   completed,
   cancelledByRider,
   cancelledByDriver,
+  expired,
   unknown;
 
   bool get isActive =>
@@ -16,9 +17,20 @@ enum TripStatus {
   bool get isCancelled =>
       this == cancelledByRider || this == cancelledByDriver;
 
+  /// Nobody accepted the request before its search window ran out.
+  bool get isExpired => this == expired;
+
+  /// Any ending that isn't a completed ride. Cancelled and expired need
+  /// different words for the rider — one is "your ride was cancelled", the
+  /// other is "we couldn't find anyone" — but every screen that asks "is this
+  /// still happening?" wants both.
+  bool get isOver => isCancelled || isExpired;
+
   static TripStatus fromApi(Object? v) {
     if (v is int) {
-      return (v >= 0 && v < cancelledByDriver.index + 1)
+      // Bound is `expired`, the last real status — `unknown` is this client's
+      // own sentinel and must never be reachable from a wire value.
+      return (v >= 0 && v < unknown.index)
           ? TripStatus.values[v]
           : unknown;
     }
@@ -37,6 +49,8 @@ enum TripStatus {
         return cancelledByRider;
       case 'cancelledbydriver':
         return cancelledByDriver;
+      case 'expired':
+        return expired;
       default:
         return unknown;
     }

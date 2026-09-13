@@ -478,6 +478,28 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     }
   }
 
+  /// Keeps searching: asks for another search window on the open request and
+  /// funnels the refreshed trip (with its new deadline) through [_applyTrip]
+  /// like every other trip update.
+  ///
+  /// Returns false if the server refused — the window is gone, or the rider has
+  /// used their extensions — leaving [RideFlowState.error] set for the caller to
+  /// show. The server owns that decision; the sheet only asks.
+  Future<bool> extendActiveTrip() async {
+    final id = state.activeTrip?.id;
+    if (id == null) return false;
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final trip = await _repo.extendTrip(id);
+      state = state.copyWith(isLoading: false);
+      _applyTrip(trip);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: friendlyError(e));
+      return false;
+    }
+  }
+
   /// Submits the rider's 1-5 star rating (+ optional comment) for [tripId].
   /// Returns true on success, false on failure (with [RideFlowState.error] set).
   Future<bool> submitRating(String tripId, {required int score, String? comment}) async {
