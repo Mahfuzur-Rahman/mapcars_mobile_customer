@@ -216,8 +216,14 @@ class _RouteSummary extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        if (route != null)
+        const SizedBox(height: 14),
+        McButton(
+          'Choose ride',
+          icon: 'chevR',
+          onTap: route == null ? null : () => context.push('/choose-ride'),
+        ),
+        if (route != null) ...[
+          const SizedBox(height: 12),
           Row(
             children: [
               _Metric(icon: 'clock', value: route!.durationText, label: 'Duration'),
@@ -225,12 +231,7 @@ class _RouteSummary extends StatelessWidget {
               _Metric(icon: 'pin', value: route!.distanceText, label: 'Distance'),
             ],
           ),
-        const SizedBox(height: 16),
-        McButton(
-          'Choose ride',
-          icon: 'chevR',
-          onTap: route == null ? null : () => context.push('/choose-ride'),
-        ),
+        ],
       ],
     );
   }

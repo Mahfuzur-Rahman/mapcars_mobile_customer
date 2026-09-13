@@ -6,6 +6,12 @@
 		<string>$(MAPS_API_KEY)</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Mapcars uses your location to show your position on the map and set your pickup point.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>Mapcars requires camera access to allow you to take and upload a profile picture.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Mapcars requires photo library access to allow you to select and upload a profile picture.</string>
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>

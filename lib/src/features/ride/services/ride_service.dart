@@ -41,6 +41,11 @@ abstract class RideRepository {
 
   Future<Trip> cancelTrip(String id, {String? reason});
 
+  /// Give a still-open request another search window and put it back in front
+  /// of drivers — the rider's "keep searching" when nobody has taken it yet.
+  /// Throws if the search has already ended or the extensions are used up.
+  Future<Trip> extendTrip(String id);
+
   Future<List<Trip>> tripHistory();
 
   Future<void> submitRating(String tripId, {required int score, String? comment});
@@ -170,6 +175,12 @@ class DioRideRepository implements RideRepository {
             if (reason != null && reason.isNotEmpty) 'reason': reason,
           },
         );
+        return Trip.fromJson(res.data!);
+      });
+
+  @override
+  Future<Trip> extendTrip(String id) => apiCall(() async {
+        final res = await _dio.post<Map<String, dynamic>>('$_base/$id/extend');
         return Trip.fromJson(res.data!);
       });
 

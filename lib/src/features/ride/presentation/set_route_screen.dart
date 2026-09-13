@@ -376,9 +376,9 @@ class _SetOnMapRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
-          color: Brand.blue.withOpacity(0.06),
+          color: Brand.blue.withValues(alpha: 0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Brand.blue.withOpacity(0.18)),
+          border: Border.all(color: Brand.blue.withValues(alpha: 0.18)),
         ),
         child: Row(
           children: [

@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/env.dart';
+import '../utils/server_clock.dart';
 import 'api_exception.dart';
 
 /// Token provider — holds the current JWT.
@@ -139,6 +140,13 @@ final dioProvider = Provider<Dio>((ref) {
         }
         handler.next(options);
       },
+      onResponse: (response, handler) {
+        // Every response carries a Date header, so keeping the server-clock
+        // offset current costs nothing extra. Countdowns (trip expiry) are
+        // measured against it rather than the device clock.
+        ServerClock.syncFrom(response.headers.value('date'));
+        handler.next(response);
+      },
       onError: (e, handler) async {
         if (kDebugMode) {
           debugPrint(
@@ -203,3 +211,22 @@ Future<T> apiCall<T>(Future<T> Function() call) async {
     throw ApiException.fromDioError(e);
   }
 }
+
+/// Whether the API itself answers, as opposed to whether the phone has a
+/// network interface up ([isOnlineProvider] in `connectivity.dart`).
+///
+/// The two fail independently and are not interchangeable: a phone on hotel
+/// Wi-Fi is "connected" with nothing reachable, and the API can be down while
+/// the signal is full. This one is the honest check because it makes a real
+/// round trip.
+///
+/// Mirrors the driver app's copy — kept in both so neither drifts.
+final apiHealthProvider = FutureProvider<bool>((ref) async {
+  try {
+    final dio = ref.watch(dioProvider);
+    final res = await dio.get<dynamic>('/api/v1/ping').timeout(const Duration(seconds: 4));
+    return res.statusCode == 200;
+  } catch (_) {
+    return false;
+  }
+});

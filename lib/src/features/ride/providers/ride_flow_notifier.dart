@@ -31,6 +31,7 @@ class RideFlowState {
     this.activeTrip,
     this.driverLocation,
     this.chatMessages = const [],
+    this.unreadMessages = 0,
     this.realtimeConnected = false,
     this.isLoading = false,
     this.error,
@@ -63,6 +64,11 @@ class RideFlowState {
   /// appended by messageReceived pushes and local sends.
   final List<ChatMessage> chatMessages;
 
+  /// Messages from the driver that have arrived since the rider last had the
+  /// chat screen open. Chat was previously invisible until opened: a driver
+  /// asking "which entrance?" got silence unless the rider happened to look.
+  final int unreadMessages;
+
   /// Whether the SignalR connection is up right now. The trip is still tracked
   /// when it isn't — [RideFlowNotifier] falls back to REST polling — but the
   /// tracking screen says so, rather than showing a frozen car.
@@ -83,6 +89,7 @@ class RideFlowState {
     Trip? activeTrip,
     DriverLocation? driverLocation,
     List<ChatMessage>? chatMessages,
+    int? unreadMessages,
     bool? realtimeConnected,
     bool? isLoading,
     String? error,
@@ -102,6 +109,8 @@ class RideFlowState {
         driverLocation:
             clearTrip ? null : (driverLocation ?? this.driverLocation),
         chatMessages: clearTrip ? const [] : (chatMessages ?? this.chatMessages),
+        unreadMessages:
+            clearTrip ? 0 : (unreadMessages ?? this.unreadMessages),
         realtimeConnected: realtimeConnected ?? this.realtimeConnected,
         isLoading: isLoading ?? this.isLoading,
         error: clearError ? null : (error ?? this.error),
@@ -423,8 +432,15 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
       // by sendMessage — skip it if we see it again from the push.
       final already = state.chatMessages.any((m) => m.id == msg.id);
       if (!already && mounted) {
+        final unread = unreadAfter(
+          current: state.unreadMessages,
+          message: msg,
+          otherParty: 'driver',
+          chatOpen: _chatOpen,
+        );
         state = state.copyWith(
-            chatMessages: [...state.chatMessages, msg]);
+            chatMessages: [...state.chatMessages, msg],
+            unreadMessages: unread);
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[ride] bad messageReceived payload: $e');
@@ -459,6 +475,28 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
       _applyTrip(trip);
     } catch (e) {
       state = state.copyWith(isLoading: false, error: friendlyError(e));
+    }
+  }
+
+  /// Keeps searching: asks for another search window on the open request and
+  /// funnels the refreshed trip (with its new deadline) through [_applyTrip]
+  /// like every other trip update.
+  ///
+  /// Returns false if the server refused — the window is gone, or the rider has
+  /// used their extensions — leaving [RideFlowState.error] set for the caller to
+  /// show. The server owns that decision; the sheet only asks.
+  Future<bool> extendActiveTrip() async {
+    final id = state.activeTrip?.id;
+    if (id == null) return false;
+    state = state.copyWith(isLoading: true, clearError: true);
+    try {
+      final trip = await _repo.extendTrip(id);
+      state = state.copyWith(isLoading: false);
+      _applyTrip(trip);
+      return true;
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: friendlyError(e));
+      return false;
     }
   }
 
@@ -507,6 +545,21 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   }
 
   // ── Chat ──────────────────────────────────────────────────────────────────
+
+  /// Whether the chat screen is on top. Messages arriving while it is do not
+  /// count as unread — the rider is already reading them.
+  bool _chatOpen = false;
+
+  /// Called from the chat screen's `initState`. Clears the badge.
+  void markChatOpen() {
+    _chatOpen = true;
+    if (mounted && state.unreadMessages != 0) {
+      state = state.copyWith(unreadMessages: 0);
+    }
+  }
+
+  /// Called from the chat screen's `dispose`.
+  void markChatClosed() => _chatOpen = false;
 
   /// Fetches the full message history for the active trip (called on chat
   /// screen mount). Replaces whatever is in state.

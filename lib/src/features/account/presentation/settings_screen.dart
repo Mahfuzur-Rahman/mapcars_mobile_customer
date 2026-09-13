@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/mc.dart';
+import '../../../core/widgets/support_sheets.dart';
 import '../../auth/providers/auth_notifier.dart';
 import '../../auth/services/rider_auth_service.dart';
 
@@ -21,10 +21,10 @@ class SettingsScreen extends ConsumerWidget {
       ('lock', 'Change password', () => context.push('/account/change-password')),
       ('card', 'Payment', () => context.push('/payment')),
       ('heart', 'Saved places', () => context.push('/account/saved-places')),
-      ('shield', 'Safety & privacy', () => _showSafetyPrivacySheet(context)),
+      ('shield', 'Safety & privacy', () => showSafetyPrivacySheet(context)),
       ('bell', 'Notifications', () => _showNotificationsSheet(context)),
       ('globe', 'Follow us & Socials', () => _showSocialsSheet(context)),
-      ('msg', 'Help & Support', () => _showHelpSupportSheet(context)),
+      ('msg', 'Help & Support', () => showHelpSupportSheet(context)),
     ];
 
     return Scaffold(
@@ -139,7 +139,7 @@ class SettingsScreen extends ConsumerWidget {
                               label: 'Facebook',
                               icon: 'globe',
                               color: const Color(0xFF1877F2),
-                              onTap: () => _openUrl(
+                              onTap: () => openExternalUrl(
                                   context, 'https://www.facebook.com/profile.php?id=61592078572248'),
                             ),
                           ),
@@ -149,7 +149,7 @@ class SettingsScreen extends ConsumerWidget {
                               label: 'Instagram',
                               icon: 'star',
                               color: const Color(0xFFE4405F),
-                              onTap: () => _openUrl(context, 'https://www.instagram.com/map91868/'),
+                              onTap: () => openExternalUrl(context, 'https://www.instagram.com/map91868/'),
                             ),
                           ),
                           const SizedBox(width: 8),
@@ -158,7 +158,7 @@ class SettingsScreen extends ConsumerWidget {
                               label: 'WhatsApp',
                               icon: 'msg',
                               color: const Color(0xFF25D366),
-                              onTap: () => _openUrl(context, 'https://wa.me/447389077004'),
+                              onTap: () => openExternalUrl(context, 'https://wa.me/447389077004'),
                             ),
                           ),
                         ],
@@ -183,25 +183,6 @@ class SettingsScreen extends ConsumerWidget {
         ),
       ),
     );
-  }
-}
-
-Future<void> _openUrl(BuildContext context, String url) async {
-  try {
-    final uri = Uri.parse(url);
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open $url')),
-        );
-      }
-    }
-  } catch (e) {
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error launching link: $e')),
-      );
-    }
   }
 }
 
@@ -296,139 +277,36 @@ void _showSocialsSheet(BuildContext context) {
           Text('Official MAP CARS community channels & social updates',
               style: tw(FontWeight.w600, 13.5, Brand.sub)),
           const SizedBox(height: 16),
-          _LinkTile(
+          LinkTile(
             title: 'Facebook Official Page',
             subtitle: 'facebook.com/profile.php?id=61592078572248',
             icon: 'globe',
             color: const Color(0xFF1877F2),
             onTap: () {
               Navigator.pop(ctx);
-              _openUrl(context, 'https://www.facebook.com/profile.php?id=61592078572248');
+              openExternalUrl(context, 'https://www.facebook.com/profile.php?id=61592078572248');
             },
           ),
           const SizedBox(height: 10),
-          _LinkTile(
+          LinkTile(
             title: 'Instagram @map91868',
             subtitle: 'instagram.com/map91868',
             icon: 'star',
             color: const Color(0xFFE4405F),
             onTap: () {
               Navigator.pop(ctx);
-              _openUrl(context, 'https://www.instagram.com/map91868/');
+              openExternalUrl(context, 'https://www.instagram.com/map91868/');
             },
           ),
           const SizedBox(height: 10),
-          _LinkTile(
+          LinkTile(
             title: 'WhatsApp Official Chat',
             subtitle: '+44 7389 077004',
             icon: 'msg',
             color: const Color(0xFF25D366),
             onTap: () {
               Navigator.pop(ctx);
-              _openUrl(context, 'https://wa.me/447389077004');
-            },
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-void _showHelpSupportSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Brand.paper,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SheetHandle(),
-          const McTitle('Help & Support', size: 20),
-          const SizedBox(height: 6),
-          Text('Reach our local Chichester support team 24/7',
-              style: tw(FontWeight.w600, 13.5, Brand.sub)),
-          const SizedBox(height: 16),
-          _LinkTile(
-            title: 'WhatsApp Live Chat',
-            subtitle: '+44 7389 077004 (Fastest response)',
-            icon: 'msg',
-            color: const Color(0xFF25D366),
-            onTap: () {
-              Navigator.pop(ctx);
-              _openUrl(context, 'https://wa.me/447389077004');
-            },
-          ),
-          const SizedBox(height: 10),
-          _LinkTile(
-            title: 'Call Support Helpline',
-            subtitle: '01243 252255 · Chichester Dispatch',
-            icon: 'nav',
-            color: Brand.blue,
-            onTap: () {
-              Navigator.pop(ctx);
-              _openUrl(context, 'tel:01243252255');
-            },
-          ),
-          const SizedBox(height: 10),
-          _LinkTile(
-            title: 'Email Support',
-            subtitle: 'info@mapcars.uk',
-            icon: 'doc',
-            color: Brand.ink,
-            onTap: () {
-              Navigator.pop(ctx);
-              _openUrl(context, 'mailto:info@mapcars.uk');
-            },
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-void _showSafetyPrivacySheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Brand.paper,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const SheetHandle(),
-          const McTitle('Safety & Privacy', size: 20),
-          const SizedBox(height: 6),
-          Text('100% PHV licensed drivers, live GPS tracking, and UK GDPR privacy protection.',
-              style: tw(FontWeight.w600, 13.5, Brand.sub)),
-          const SizedBox(height: 16),
-          _LinkTile(
-            title: 'Emergency 999 Services',
-            subtitle: 'One-tap emergency call',
-            icon: 'shield',
-            color: Colors.red,
-            onTap: () {
-              Navigator.pop(ctx);
-              _openUrl(context, 'tel:999');
-            },
-          ),
-          const SizedBox(height: 10),
-          _LinkTile(
-            title: 'Privacy Policy & Terms',
-            subtitle: 'mapcars.uk/legal/privacy',
-            icon: 'doc',
-            color: Brand.blue,
-            onTap: () {
-              Navigator.pop(ctx);
-              _openUrl(context, 'https://mapcars.uk/legal/privacy');
+              openExternalUrl(context, 'https://wa.me/447389077004');
             },
           ),
         ],
@@ -477,62 +355,6 @@ void _showNotificationsSheet(BuildContext context) {
       ),
     ),
   );
-}
-
-class _LinkTile extends StatelessWidget {
-  const _LinkTile({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final String icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Brand.fill.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Brand.line),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Center(child: Ico(icon, size: 20, color: color)),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: tw(FontWeight.w800, 14.5, Brand.ink)),
-                  const SizedBox(height: 2),
-                  Text(subtitle, style: tw(FontWeight.w600, 12, Brand.sub)),
-                ],
-              ),
-            ),
-            const Ico('chevR', size: 16, color: Brand.faint),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _CustomerTabBar extends StatelessWidget {

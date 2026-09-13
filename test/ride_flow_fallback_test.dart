@@ -68,6 +68,9 @@ class _FakeRepo implements RideRepository {
   // Unused by these tests.
   @override
   Future<Trip> cancelTrip(String id, {String? reason}) async => current;
+
+  @override
+  Future<Trip> extendTrip(String id) async => current;
   @override
   Future<List<ChatMessage>> getMessages(String tripId) async => const [];
   @override

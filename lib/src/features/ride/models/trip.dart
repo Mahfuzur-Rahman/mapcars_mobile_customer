@@ -26,6 +26,9 @@ class Trip {
     this.tipPence = 0,
     this.distanceMiles,
     this.durationMinutes,
+    this.expiresAt,
+    this.extensionCount = 0,
+    this.canExtend = false,
   });
 
   final String id;
@@ -52,6 +55,18 @@ class Trip {
   final int tipPence; // rider tip, paid on top of the fare
   final double? distanceMiles;
   final double? durationMinutes;
+
+  /// When the current search window closes (`expiresAtUtc`). The server owns
+  /// this; we count down to it rather than working out a deadline from
+  /// `createdAt` plus a duration this app happens to believe in.
+  final DateTime? expiresAt;
+
+  /// How many times the rider has already extended the search.
+  final int extensionCount;
+
+  /// Whether the rider may extend right now — decided by the server, rendered
+  /// here. Don't re-derive it from [extensionCount].
+  final bool canExtend;
 
   String? get formattedFare => farePence == null ? null : formatGbp(farePence!);
 
@@ -123,6 +138,11 @@ class Trip {
       tipPence: (((j['tipAmount'] as num?)?.toDouble() ?? 0) * 100).round(),
       distanceMiles: (j['distanceMiles'] as num?)?.toDouble(),
       durationMinutes: (j['durationMinutes'] as num?)?.toDouble(),
+      expiresAt: j['expiresAtUtc'] != null
+          ? DateTime.tryParse(j['expiresAtUtc'].toString())
+          : null,
+      extensionCount: (j['extensionCount'] as num?)?.toInt() ?? 0,
+      canExtend: j['canExtend'] as bool? ?? false,
     );
   }
 }
