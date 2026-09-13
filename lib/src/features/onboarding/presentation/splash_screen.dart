@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/app_config.dart';
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
+import '../../ride/providers/fare_chart_provider.dart';
+import '../../ride/providers/payment_settings_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -22,6 +24,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   /// Restore any persisted session, then route the customer to the right place.
   Future<void> _boot() async {
+    // Warm the two public config calls the booking flow needs the instant it
+    // opens. Fire-and-forget on purpose: the splash must never gain a blocking
+    // dependency on a config fetch, and both have their own fallbacks. The
+    // 1200ms below is more than enough to hide the round-trip.
+    ref.read(fareChartProvider.future).ignore();
+    ref.read(paymentSettingsProvider.future).ignore();
+
     await ref.read(authNotifierProvider.notifier).restore();
     await Future<void>.delayed(const Duration(milliseconds: 1200));
     if (!mounted) return;

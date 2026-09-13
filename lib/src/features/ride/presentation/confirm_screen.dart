@@ -6,6 +6,7 @@ import '../../../core/router/nav.dart';
 import '../../../core/utils/money.dart';
 import '../../../core/widgets/mc.dart';
 import '../models/ride_option.dart';
+import '../providers/payment_settings_provider.dart';
 import '../providers/ride_flow_notifier.dart';
 import 'widgets/static_route_map.dart';
 
@@ -22,14 +23,17 @@ class ConfirmScreen extends ConsumerStatefulWidget {
 class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
   static const _tipOptions = [0, 1, 2, 5]; // whole pounds
   int _tipPounds = 0;
-  String _method = 'cash'; // 'cash' works today; 'card' (Stripe) lands next
+  /// Null until the payment settings resolve, then the admin's preselected
+  /// method. Not defaulted to 'cash': what is on offer is a platform setting
+  /// now, and hard-coding it here is exactly what the settings exist to stop.
+  String? _method;
   bool _submitting = false;
 
   Future<void> _confirm() async {
     setState(() => _submitting = true);
     final trip = await ref
         .read(rideFlowProvider.notifier)
-        .confirmTrip(paymentMethod: _method, tipAmount: _tipPounds.toDouble());
+        .confirmTrip(paymentMethod: _method!, tipAmount: _tipPounds.toDouble());
     if (!mounted) return;
     if (trip != null) {
       context.go('/searching');
@@ -48,6 +52,17 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
   Widget build(BuildContext context) {
     final flow = ref.watch(rideFlowProvider);
     final quote = ref.watch(rideQuoteProvider);
+
+    // Falls back to cash-only while the settings call is in flight or has
+    // failed, rather than holding the screen on a spinner: someone who opened
+    // the app to get a car should not be waiting on a config fetch.
+    final settings = ref.watch(paymentSettingsOrFallbackProvider);
+
+    // Settle on a method once, and re-settle if an admin changes the settings
+    // mid-session so the selection can never be a method no longer on offer.
+    if (_method == null || !settings.available.contains(_method)) {
+      _method = settings.preselected;
+    }
 
     RideOption? option;
     for (final o in quote.asData?.value.options ?? const <RideOption>[]) {
@@ -165,28 +180,42 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                     const SizedBox(height: 16),
                     Text('Pay with', style: tw(FontWeight.w700, 13, Brand.sub)),
                     const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _PayOption(
-                            icon: 'cash',
-                            label: 'Cash',
-                            selected: _method == 'cash',
-                            onTap: () => setState(() => _method = 'cash'),
+                    // Rendered from the platform settings, never from a fixed pair
+                    // of buttons: switching cash off has to be a checkbox in the
+                    // admin portal, not an app release. With one method on this
+                    // becomes a line of text — a chooser offering no choice is
+                    // just noise on the busiest screen in the app.
+                    if (!settings.hasChoice)
+                      Row(
+                        children: [
+                          Ico(_method == 'card' ? 'card' : 'cash',
+                              size: 18, color: Brand.sub),
+                          const SizedBox(width: 8),
+                          Text(
+                            _method == 'card'
+                                ? 'Card, charged when your trip ends'
+                                : 'Cash, paid to your driver',
+                            style: tw(FontWeight.w700, 13.5, Brand.sub),
                           ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _PayOption(
-                            icon: 'card',
-                            label: 'Card',
-                            selected: _method == 'card',
-                            // Card charging (Stripe) isn't wired yet — coming next.
-                            comingSoon: true,
-                          ),
-                        ),
-                      ],
-                    ),
+                        ],
+                      )
+                    else
+                      Row(
+                        children: [
+                          for (final m in settings.available) ...[
+                            if (m != settings.available.first)
+                              const SizedBox(width: 10),
+                            Expanded(
+                              child: _PayOption(
+                                icon: m,
+                                label: m == 'card' ? 'Card' : 'Cash',
+                                selected: _method == m,
+                                onTap: () => setState(() => _method = m),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     const SizedBox(height: 16),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -249,17 +278,17 @@ class _PayOption extends StatelessWidget {
     required this.label,
     required this.selected,
     this.onTap,
-    this.comingSoon = false,
   });
   final String icon;
   final String label;
   final bool selected;
   final VoidCallback? onTap;
-  final bool comingSoon;
 
   @override
   Widget build(BuildContext context) {
-    final disabled = comingSoon || onTap == null;
+    // `comingSoon` lived here to grey Card out while Stripe was unbuilt. That is
+    // a platform setting now, so an unavailable method is simply not rendered.
+    final disabled = onTap == null;
     final fg = disabled
         ? Brand.faint
         : (selected ? Brand.blue : Brand.ink);
@@ -284,10 +313,7 @@ class _PayOption extends StatelessWidget {
               const SizedBox(width: 8),
               Text(label, style: tw(FontWeight.w800, 14, fg)),
               const Spacer(),
-              if (comingSoon)
-                Text('Soon', style: tw(FontWeight.w800, 10.5, Brand.faint, 0.4))
-              else if (selected)
-                const Ico('check', size: 16, color: Brand.blue),
+              if (selected) const Ico('check', size: 16, color: Brand.blue),
             ],
           ),
         ),
