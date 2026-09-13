@@ -12,7 +12,7 @@ import 'mc.dart';
 ///
 /// It overlays rather than pushing content down: inserting a bar into the
 /// layout would shift every screen underneath it the moment the signal drops,
-/// and a map jumping under the rider's thumb is its own small bug. It is also
+/// and a map jumping under the customer's thumb is its own small bug. It is also
 /// wrapped in [IgnorePointer], so it can never swallow a tap meant for the UI
 /// beneath it.
 class OfflineBanner extends ConsumerWidget {

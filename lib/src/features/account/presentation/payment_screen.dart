@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 
 import '../../../core/widgets/mc.dart';
 
-/// What the rider actually pays with today: cash, handed to the driver at
+/// What the customer actually pays with today: cash, handed to the driver at
 /// drop-off.
 ///
 /// This screen used to list two saved cards — a "default" Visa •••• 4242 and a
 /// Mastercard •••• 8801 — above an add-a-card form whose button did nothing.
 /// Neither card existed: there is no saved-card API, and the confirm screen
-/// already marks Card as "Soon". A rider could reasonably have believed a card
+/// already marks Card as "Soon". A customer could reasonably have believed a card
 /// of theirs was on file and would be charged.
 class PaymentScreen extends StatelessWidget {
   const PaymentScreen({super.key});

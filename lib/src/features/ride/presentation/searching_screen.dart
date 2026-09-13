@@ -16,7 +16,7 @@ import 'widgets/static_route_map.dart';
 ///
 /// A request is not open forever. It carries a server-set deadline
 /// (`expiresAtUtc`), and when that passes the search is *paused*: it comes off
-/// every driver's board and the rider is asked whether to keep looking. Say
+/// every driver's board and the customer is asked whether to keep looking. Say
 /// nothing and the trip closes itself a minute later, which is the whole point
 /// — before this, an unwanted request sat here spinning indefinitely.
 class SearchingScreen extends ConsumerStatefulWidget {
@@ -31,7 +31,7 @@ class SearchingScreen extends ConsumerStatefulWidget {
 
 class _SearchingScreenState extends ConsumerState<SearchingScreen> {
   /// Mirrors the server's `TripExpiry.Grace`. Display only — how long the sheet
-  /// says the rider has left. The server closes the trip on its own clock
+  /// says the customer has left. The server closes the trip on its own clock
   /// whatever this says, so the two drifting apart costs a slightly wrong
   /// number, never a wrongly-live request.
   static const _grace = Duration(minutes: 1);
@@ -73,7 +73,7 @@ class _SearchingScreenState extends ConsumerState<SearchingScreen> {
     context.go('/home');
   }
 
-  /// The search found nobody. Send the rider back to the ride picker with their
+  /// The search found nobody. Send the customer back to the ride picker with their
   /// route still set, rather than to an empty home screen that makes them type
   /// both addresses again to ask the same question.
   ///
@@ -97,7 +97,7 @@ class _SearchingScreenState extends ConsumerState<SearchingScreen> {
       if (status == null) return;
 
       // Endings first. Both of these also satisfy `!= requested`, so checking
-      // them after the tracking branch would route the rider to a live-trip
+      // them after the tracking branch would route the customer to a live-trip
       // screen for a trip that has already finished.
       if (status.isExpired) {
         _leaveExpired();
@@ -222,7 +222,7 @@ class _SearchingScreenState extends ConsumerState<SearchingScreen> {
       ),
       const SizedBox(height: 10),
       // Say what happens if they do nothing. A prompt that quietly cancels the
-      // ride a minute later, with no warning, is the kind of thing riders only
+      // ride a minute later, with no warning, is the kind of thing customers only
       // discover once it has cost them.
       Text(
         canExtend

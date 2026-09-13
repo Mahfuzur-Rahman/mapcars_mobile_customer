@@ -8,7 +8,7 @@ import '../../ride/models/trip.dart';
 import '../../ride/models/trip_status.dart';
 import '../../ride/services/ride_service.dart';
 
-/// The rider's real trip history (`GET /trips` via [tripHistoryProvider]).
+/// The customer's real trip history (`GET /trips` via [tripHistoryProvider]).
 /// Tapping a completed trip opens its receipt.
 class HistoryScreen extends ConsumerWidget {
   const HistoryScreen({super.key});
@@ -78,7 +78,7 @@ class _TripRow extends StatelessWidget {
 
     final (statusText, statusColor) = switch (trip.status) {
       TripStatus.completed => (trip.paymentMethodLabel, Brand.sub),
-      TripStatus.cancelledByRider ||
+      TripStatus.cancelledByCustomer ||
       TripStatus.cancelledByDriver =>
         ('Cancelled', Brand.sub),
       _ => ('In progress', Brand.blue),

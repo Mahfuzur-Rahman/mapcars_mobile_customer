@@ -64,9 +64,9 @@ class RideFlowState {
   /// appended by messageReceived pushes and local sends.
   final List<ChatMessage> chatMessages;
 
-  /// Messages from the driver that have arrived since the rider last had the
+  /// Messages from the driver that have arrived since the customer last had the
   /// chat screen open. Chat was previously invisible until opened: a driver
-  /// asking "which entrance?" got silence unless the rider happened to look.
+  /// asking "which entrance?" got silence unless the customer happened to look.
   final int unreadMessages;
 
   /// Whether the SignalR connection is up right now. The trip is still tracked
@@ -191,7 +191,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   /// belt-and-braces pedantry: this flow previously had no fallback at all
   /// (`refreshActiveTrip` existed but nothing ever called it), so anything that
   /// broke the socket — and in production, the proxy broke it once a minute —
-  /// left the rider on "Finding your driver…" while a car was already outside,
+  /// left the customer on "Finding your driver…" while a car was already outside,
   /// with no PIN and no way to find out.
   Future<void> _startRealtime(String tripId) async {
     _startWatchdog();
@@ -219,7 +219,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
 
   // ── REST safety net ────────────────────────────────────────────────────────
 
-  /// Poll cadence while the socket is down — the rider is waiting on a kerb, so
+  /// Poll cadence while the socket is down — the customer is waiting on a kerb, so
   /// a few seconds of staleness is the most that's acceptable. Matched to the
   /// driver app's own ~5s location-push cadence: polling faster than the driver
   /// reports cannot surface anything newer, it just costs requests.
@@ -272,7 +272,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   }
 
   /// Call when the app returns to the foreground. Android freezes sockets on a
-  /// backgrounded app, and a rider waiting for a car is backgrounded by
+  /// backgrounded app, and a customer waiting for a car is backgrounded by
   /// definition — so resuming has to re-establish realtime *and* re-read the
   /// trip, not assume the connection survived.
   Future<void> appResumed() async {
@@ -303,7 +303,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   }
 
   /// Looks for a trip still in flight and re-attaches to it. Called on app
-  /// start or login: without this, a rider whose app was killed mid-ride (which Android
+  /// start or login: without this, a customer whose app was killed mid-ride (which Android
   /// does freely to a backgrounded app) comes back to a "Where to?" home screen
   /// while their driver is en route or in progress, with no way back to the tracking map.
   ///
@@ -387,7 +387,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
 
   /// The one place an updated trip enters state, whichever path found it — a
   /// realtime push, a safety-net poll, or a resume. Milestone alerts hang off
-  /// this single funnel rather than off the push handler, so the rider is told
+  /// this single funnel rather than off the push handler, so the customer is told
   /// their driver has arrived even when the push never came.
   void _applyTrip(Trip trip) {
     if (!mounted) return;
@@ -401,7 +401,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     }
   }
 
-  /// Raises the on-device alert for a milestone the rider must not miss. Guarded
+  /// Raises the on-device alert for a milestone the customer must not miss. Guarded
   /// per trip, so re-reading the same status (a poll and a push arriving
   /// together, or the app being reopened) announces it once only.
   void _announce(Trip trip) {
@@ -482,7 +482,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   /// funnels the refreshed trip (with its new deadline) through [_applyTrip]
   /// like every other trip update.
   ///
-  /// Returns false if the server refused — the window is gone, or the rider has
+  /// Returns false if the server refused — the window is gone, or the customer has
   /// used their extensions — leaving [RideFlowState.error] set for the caller to
   /// show. The server owns that decision; the sheet only asks.
   Future<bool> extendActiveTrip() async {
@@ -500,7 +500,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     }
   }
 
-  /// Submits the rider's 1-5 star rating (+ optional comment) for [tripId].
+  /// Submits the customer's 1-5 star rating (+ optional comment) for [tripId].
   /// Returns true on success, false on failure (with [RideFlowState.error] set).
   Future<bool> submitRating(String tripId, {required int score, String? comment}) async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -514,9 +514,9 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     }
   }
 
-  /// Loads the rider's most recently completed trip — what the completed and
+  /// Loads the customer's most recently completed trip — what the completed and
   /// rate screens are about when they weren't reached by finishing a ride in
-  /// this session (menu, deep link, app restart). Returns null when the rider
+  /// this session (menu, deep link, app restart). Returns null when the customer
   /// has never completed one, or the call failed.
   ///
   /// This does **not** start realtime: the trip is over, there is nothing left
@@ -547,7 +547,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   // ── Chat ──────────────────────────────────────────────────────────────────
 
   /// Whether the chat screen is on top. Messages arriving while it is do not
-  /// count as unread — the rider is already reading them.
+  /// count as unread — the customer is already reading them.
   bool _chatOpen = false;
 
   /// Called from the chat screen's `initState`. Clears the badge.
@@ -604,7 +604,7 @@ final rideFlowProvider =
   (ref) => RideFlowNotifier(ref.watch(rideRepositoryProvider), ref),
 );
 
-/// Thrown when something asks for a price before the rider has set a route.
+/// Thrown when something asks for a price before the customer has set a route.
 /// The route screens are gated on `hasRoute`, so this is a backstop, not a
 /// user-facing path.
 class NoRouteException implements Exception {
@@ -621,7 +621,7 @@ class NoRouteException implements Exception {
 ///
 /// Requires a real route. It used to substitute a default Canary Wharf → Tower
 /// Bridge one, so opening choose-ride directly quoted confident prices for a
-/// journey the rider had never asked for.
+/// journey the customer had never asked for.
 final rideQuoteProvider = FutureProvider.autoDispose<RideQuote>((ref) async {
   final flow = ref.watch(rideFlowProvider);
   final chart = await ref.watch(fareChartProvider.future);

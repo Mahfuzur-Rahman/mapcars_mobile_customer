@@ -15,9 +15,9 @@ class GoogleSignInFailure implements Exception {
 }
 
 /// Wraps the Google account picker and hands back the **ID token** that
-/// `POST /api/v1/auth/riders/google` verifies.
+/// `POST /api/v1/auth/customers/google` verifies.
 ///
-/// The API identifies the rider from that token alone, so nothing else about
+/// The API identifies the customer from that token alone, so nothing else about
 /// the Google account is sent or stored.
 ///
 /// Not configured yet: without `GOOGLE_SERVER_CLIENT_ID` in `.env` Google

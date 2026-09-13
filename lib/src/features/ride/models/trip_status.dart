@@ -6,7 +6,7 @@ enum TripStatus {
   driverArrived,
   inProgress,
   completed,
-  cancelledByRider,
+  cancelledByCustomer,
   cancelledByDriver,
   expired,
   unknown;
@@ -15,13 +15,13 @@ enum TripStatus {
       this == driverAssigned || this == driverArrived || this == inProgress;
 
   bool get isCancelled =>
-      this == cancelledByRider || this == cancelledByDriver;
+      this == cancelledByCustomer || this == cancelledByDriver;
 
   /// Nobody accepted the request before its search window ran out.
   bool get isExpired => this == expired;
 
   /// Any ending that isn't a completed ride. Cancelled and expired need
-  /// different words for the rider — one is "your ride was cancelled", the
+  /// different words for the customer — one is "your ride was cancelled", the
   /// other is "we couldn't find anyone" — but every screen that asks "is this
   /// still happening?" wants both.
   bool get isOver => isCancelled || isExpired;
@@ -45,8 +45,13 @@ enum TripStatus {
         return inProgress;
       case 'completed':
         return completed;
+      // Both spellings, for the length of the Rider -> Customer rename. The
+      // value is persisted in trips."Status", so the API sends the old one
+      // until migration 031 and the new one after. Accepting both means this
+      // build survives the cutover without a store release.
       case 'cancelledbyrider':
-        return cancelledByRider;
+      case 'cancelledbycustomer':
+        return cancelledByCustomer;
       case 'cancelledbydriver':
         return cancelledByDriver;
       case 'expired':

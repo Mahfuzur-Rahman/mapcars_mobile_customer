@@ -8,7 +8,7 @@ import '../../models/driver_info.dart';
 /// A trip has no driver until one accepts, and the API only sends the details
 /// to that trip's own two parties — so [driver] really can be null, and the
 /// card says so. It used to invent "James K. · 4.9 · Silver Toyota Prius ·
-/// LB12 KXR" in that gap, which a rider had no way to tell from the real thing.
+/// LB12 KXR" in that gap, which a customer had no way to tell from the real thing.
 ///
 /// Shared by the tracking and in-progress screens, which showed two separately
 /// maintained copies of the same card.

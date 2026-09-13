@@ -43,7 +43,7 @@ import '../../features/ride/presentation/widgets/ride_gate.dart';
 ///
 /// Entries carrying an `icon` are the real user-facing menu: they are the only
 /// ones the drawer shows outside dev builds. Everything else is a prototype
-/// step — a rider must not be able to jump into `/searching` from a menu.
+/// step — a customer must not be able to jump into `/searching` from a menu.
 const List<StepRoute> kCustomerFlow = [
   StepRoute('/', 'Splash', category: 'Onboarding'),
   StepRoute('/intro', 'Intro', category: 'Onboarding'),
@@ -78,7 +78,7 @@ GoRoute _r(String path, Widget Function() b) =>
     GoRoute(path: path, builder: (c, s) => b());
 
 /// Routes reachable without a session: the onboarding/auth funnel and the
-/// dev-only screen index. `/profile-setup` stays public because the rider is
+/// dev-only screen index. `/profile-setup` stays public because the customer is
 /// mid-onboarding (just got a token from OTP) when they land there.
 const _publicRoutes = {
   '/',
@@ -93,7 +93,7 @@ const _publicRoutes = {
 };
 
 /// Bridges [authTokenProvider] changes to go_router so guards re-evaluate the
-/// moment the rider signs in or the session is torn down (e.g. on a 401).
+/// moment the customer signs in or the session is torn down (e.g. on a 401).
 class _AuthRefresh extends ChangeNotifier {
   _AuthRefresh(Ref ref) {
     _sub = ref.listen<String?>(authTokenProvider, (_, __) => notifyListeners());
@@ -173,13 +173,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             return RoutePreviewScreen(destination: dest);
           },
         ),
-        // Pre-booking: about a route the rider set, not a trip yet.
+        // Pre-booking: about a route the customer set, not a trip yet.
         _r('/choose-ride',
             () => const RouteGate(child: ChooseRideScreen())),
         _r('/confirm',
             () => const RouteGate(requireOption: true, child: ConfirmScreen())),
         // Booked: every one of these is about a real trip. `RideGate` resolves
-        // the rider's own ride from the API when the screen wasn't reached
+        // the customer's own ride from the API when the screen wasn't reached
         // through the booking flow (menu, deep link, restart), and says plainly
         // when there isn't one.
         _r('/searching', () => RideGate(builder: (t) => SearchingScreen(trip: t))),

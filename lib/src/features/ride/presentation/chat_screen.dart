@@ -39,7 +39,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     _markChatClosed = flow.markChatClosed;
     // Reading the conversation is what marks it read — do it before the
     // fetch, so a message landing mid-fetch does not raise a badge for a
-    // screen the rider is already looking at.
+    // screen the customer is already looking at.
     flow.markChatOpen();
     // Fetch existing messages when the screen opens.
     Future.microtask(flow.fetchMessages);
@@ -114,7 +114,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                     itemCount: messages.length,
                     itemBuilder: (context, i) => _Bubble(
                       message: messages[i],
-                      isMine: messages[i].senderType == 'rider',
+                      isMine: messages[i].senderType == 'customer',
                     ),
                   ),
           ),

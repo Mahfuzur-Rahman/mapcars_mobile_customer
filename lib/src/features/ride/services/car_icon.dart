@@ -19,7 +19,7 @@ const carIconHeight = 128.0;
 ///
 /// Defaults to pearl rather than a dark body: scenery cars are drawn in this
 /// colour, and it is the one that survives both the standard and the night map
-/// style. Callers that own a *specific* car (the rider's own driver) pass their
+/// style. Callers that own a *specific* car (the customer's own driver) pass their
 /// own colour — see `Brand.carPearl` / `Brand.blue`.
 Future<BitmapDescriptor> drawCarIcon([Color body = Brand.carPearl]) async {
   const w = 64, h = 128;
@@ -36,7 +36,7 @@ Future<BitmapDescriptor> drawCarIcon([Color body = Brand.carPearl]) async {
   );
 }
 
-/// The rider's own driver, drawn with a pulsing halo so the car coming for them
+/// The customer's own driver, drawn with a pulsing halo so the car coming for them
 /// is instantly distinguishable from the scenery cars on the same map.
 ///
 /// [pulse] runs 0→1 over one beat. The halo grows and fades across that beat, so

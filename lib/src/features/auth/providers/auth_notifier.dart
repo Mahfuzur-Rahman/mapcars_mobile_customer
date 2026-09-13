@@ -6,13 +6,13 @@ import '../../../core/network/api_client.dart';
 import '../../../core/network/friendly_error.dart';
 import '../models/auth_state.dart';
 import '../services/google_sign_in_service.dart';
-import '../services/rider_auth_service.dart';
+import '../services/customer_auth_service.dart';
 import '../services/session_repository.dart';
 
 class AuthNotifier extends StateNotifier<AuthState> {
   AuthNotifier(this._service, this._ref) : super(const AuthState());
 
-  final RiderAuthService _service;
+  final CustomerAuthService _service;
   final Ref _ref;
 
   // ── Phone flow ─────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Full "Continue with Google" flow: account picker → ID token → API.
   ///
-  /// Returns false without setting an error when the rider dismisses the
+  /// Returns false without setting an error when the customer dismisses the
   /// picker, so the screen simply stays put.
   Future<bool> continueWithGoogle({bool signUp = false}) async {
     state = state.copyWith(isLoading: true, clearError: true);
@@ -255,7 +255,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     if (!session.isExpired) return;
 
     // The access token lapsed while the app was closed. That used to be the end
-    // of the session - the rider was dropped at the login screen having done
+    // of the session - the customer was dropped at the login screen having done
     // nothing wrong. Now we renew it silently and they never notice.
     final renewed = await _ref.read(sessionRefresherProvider).refresh();
     if (renewed) return; // the sessionRenewed listener persists the new tokens
@@ -314,7 +314,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     await _persistSession();
   }
 
-  /// Writes the current [state] to secure storage so the rider stays signed
+  /// Writes the current [state] to secure storage so the customer stays signed
   /// in across restarts, and any profile edits survive an app restart too.
   Future<void> _persistSession() async {
     final session = state.toSession();
@@ -326,10 +326,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
 final authNotifierProvider =
     StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  final notifier = AuthNotifier(ref.watch(riderAuthServiceProvider), ref);
+  final notifier = AuthNotifier(ref.watch(customerAuthServiceProvider), ref);
 
   // When the API rejects our token (HTTP 401), tear the session down so the
-  // route guards bounce the rider back to sign-in. The signal is a core-level
+  // route guards bounce the customer back to sign-in. The signal is a core-level
   // leaf provider, keeping core/ independent of this feature.
   ref.listen<int>(unauthorizedProvider, (prev, next) {
     if (next > 0) notifier.signOut();

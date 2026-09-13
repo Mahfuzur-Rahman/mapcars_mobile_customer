@@ -63,7 +63,7 @@ class LiveNearbyCars {
   /// Start (or re-center) polling around [center]. Safe to call again.
   Future<void> start(LatLng center) async {
     _center = center;
-    // Pearl: these are ambient scenery cars, so they must recede. The rider's
+    // Pearl: these are ambient scenery cars, so they must recede. The customer's
     // own driver is drawn in Brand.blue by trip_tracking_map, and the contrast
     // between the two is what makes "that one is mine" readable at a glance.
     _icon ??= await drawCarIcon(Brand.carPearl);
@@ -73,7 +73,7 @@ class LiveNearbyCars {
   }
 
   /// Follow the map: re-query around [center] once the user has panned far
-  /// enough, so cars show up where the rider is actually looking. [radiusMeters]
+  /// enough, so cars show up where the customer is actually looking. [radiusMeters]
   /// (usually derived from the visible region) widens the query when zoomed out.
   void recenter(LatLng center, {double? radiusMeters}) {
     final previous = _center;

@@ -13,7 +13,7 @@ import '../../models/trip.dart';
 ///
 /// Distinct from the Settings "Safety & Privacy" sheet, which is policy text and
 /// a 999 shortcut: this one knows about the *current trip*, so it can hand the
-/// rider's emergency contact the details of the car they are actually sitting in.
+/// customer's emergency contact the details of the car they are actually sitting in.
 ///
 /// The emergency contact is captured during profile setup and, until this
 /// existed, was never read anywhere — the sheet below is what makes collecting
@@ -48,7 +48,7 @@ Future<void> showTripSafetySheet(
         },
       ),
       const SizedBox(height: 10),
-      // Either call the contact the rider already gave us, or send them to add
+      // Either call the contact the customer already gave us, or send them to add
       // one — never show a dead row.
       if (hasContact)
         LinkTile(
@@ -98,7 +98,7 @@ Future<void> showTripSafetySheet(
   );
 }
 
-/// Hands the ride's identifying details to whatever the rider picks — Messages,
+/// Hands the ride's identifying details to whatever the customer picks — Messages,
 /// WhatsApp, email.
 Future<void> shareTrip(Trip trip, {DriverLocation? driverPosition}) {
   return Share.share(

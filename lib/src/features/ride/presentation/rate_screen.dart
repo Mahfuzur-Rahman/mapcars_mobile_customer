@@ -17,7 +17,7 @@ class RateScreen extends ConsumerStatefulWidget {
 }
 
 class _RateScreenState extends ConsumerState<RateScreen> {
-  /// No stars until the rider picks some. It used to open on 4, so tapping
+  /// No stars until the customer picks some. It used to open on 4, so tapping
   /// straight through submitted a rating they never gave.
   int _rating = 0;
   final _commentController = TextEditingController();
@@ -113,7 +113,7 @@ class _RateScreenState extends ConsumerState<RateScreen> {
                 ],
               ),
               const SizedBox(height: 20),
-              // The tip the rider actually added when booking, read-only. What
+              // The tip the customer actually added when booking, read-only. What
               // stood here was a £1/£2/£5 selector that charged nothing and
               // sent nothing — the tip goes on the booking, and the rating
               // endpoint takes only a score and a comment.

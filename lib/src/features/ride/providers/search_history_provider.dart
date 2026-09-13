@@ -4,8 +4,8 @@ import '../../auth/providers/auth_notifier.dart';
 import '../models/place.dart';
 import '../services/search_history_service.dart';
 
-/// Exposes the current rider's recent destinations and lets the search screen
-/// record new ones. Rebuilds whenever the signed-in rider changes, so recents
+/// Exposes the current customer's recent destinations and lets the search screen
+/// record new ones. Rebuilds whenever the signed-in customer changes, so recents
 /// always belong to the active user (and reset to `guest` on sign-out).
 class SearchHistoryNotifier extends StateNotifier<List<Place>> {
   SearchHistoryNotifier(this._service, this._userId)

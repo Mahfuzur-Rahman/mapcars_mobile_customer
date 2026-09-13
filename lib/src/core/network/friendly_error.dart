@@ -6,12 +6,12 @@ import 'package:flutter/foundation.dart';
 
 import 'api_exception.dart';
 
-/// Turns any thrown object into a sentence a rider can act on.
+/// Turns any thrown object into a sentence a customer can act on.
 ///
 /// Nothing a user sees should ever be a raw exception — `e.toString()` leaks
 /// things like `DioException [connection error]: ...` or
 /// `PlatformException(sign_in_failed, com.google.android.gms...ApiException: 10,
-/// null, null)`, which mean nothing to a rider and look like a broken app.
+/// null, null)`, which mean nothing to a customer and look like a broken app.
 ///
 /// [ApiException] already carries a message the API wrote for humans (the
 /// problem+json `title`), so that passes through untouched. Anything else is

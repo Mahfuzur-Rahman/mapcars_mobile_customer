@@ -1,9 +1,9 @@
 // Regression tests for the arrival-notification failure.
 //
-// The bug: a rider's awareness of their trip hung entirely off one SignalR
+// The bug: a customer's awareness of their trip hung entirely off one SignalR
 // connection. `refreshActiveTrip` existed as a stated fallback but **nothing
 // ever called it**, so when the socket went quiet — which in production it did,
-// once a minute, when the proxy cut every long-poll with a 504 — the rider sat
+// once a minute, when the proxy cut every long-poll with a 504 — the customer sat
 // on "Finding your driver…" with a car outside and never saw the PIN.
 //
 // These tests pin the two properties that fix it: the REST path actually runs
@@ -33,7 +33,7 @@ Trip _trip(TripStatus status) => Trip.fromJson({
     });
 
 /// A repository whose `getTrip` answer can be changed mid-test, standing in for
-/// the API moving the trip on while the rider's socket is dead.
+/// the API moving the trip on while the customer's socket is dead.
 class _FakeRepo implements RideRepository {
   _FakeRepo(this.current);
   Trip current;
@@ -137,7 +137,7 @@ void main() {
     final h = _harness(_trip(TripStatus.requested));
     final notifier = h.container.read(rideFlowProvider.notifier);
 
-    // Booked, and as far as this rider's app knows the trip is still unassigned:
+    // Booked, and as far as this customer's app knows the trip is still unassigned:
     // no realtime token in this harness, so nothing can arrive by push.
     await _book(notifier);
     expect(h.container.read(rideFlowProvider).activeTrip?.status,
@@ -150,7 +150,7 @@ void main() {
 
     expect(h.container.read(rideFlowProvider).activeTrip?.status,
         TripStatus.driverArrived,
-        reason: 'the rider must learn about the arrival over REST alone');
+        reason: 'the customer must learn about the arrival over REST alone');
     expect(h.alerts.raised, ['arrived:4821'],
         reason: 'and be told, with the PIN the driver will ask for');
   });
@@ -168,7 +168,7 @@ void main() {
     await notifier.resumeTrip(_trip(TripStatus.driverArrived));
 
     expect(h.alerts.raised.where((a) => a.startsWith('arrived')).length, 1,
-        reason: 'the rider should be interrupted once, not once per delivery');
+        reason: 'the customer should be interrupted once, not once per delivery');
   });
 
   test('the watchdog polls on its own while realtime is unavailable', () async {

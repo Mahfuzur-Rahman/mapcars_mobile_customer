@@ -20,7 +20,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     _boot();
   }
 
-  /// Restore any persisted session, then route the rider to the right place.
+  /// Restore any persisted session, then route the customer to the right place.
   Future<void> _boot() async {
     await ref.read(authNotifierProvider.notifier).restore();
     await Future<void>.delayed(const Duration(milliseconds: 1200));

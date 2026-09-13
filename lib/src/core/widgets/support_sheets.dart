@@ -8,7 +8,7 @@ import 'mc.dart';
 /// These began as private helpers inside `settings_screen.dart`. They moved here
 /// when the ride screens needed them too: "Get help" on the completed screen and
 /// the in-ride safety sheet both want the same tiles and the same launcher, and
-/// a rider should not get a different-looking help sheet depending on which
+/// a customer should not get a different-looking help sheet depending on which
 /// screen they opened it from.
 
 /// Opens [url] in the appropriate external app, surfacing any failure as a

@@ -11,7 +11,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('drawCarIcon rasterises for every colour a caller passes', () async {
-    // Pearl = scenery cars (live_nearby_cars), blue = the rider's own driver
+    // Pearl = scenery cars (live_nearby_cars), blue = the customer's own driver
     // (trip_tracking_map). A near-black body is no longer used anywhere.
     for (final body in const [Brand.carPearl, Brand.blue]) {
       await expectLater(drawCarIcon(body), completes);

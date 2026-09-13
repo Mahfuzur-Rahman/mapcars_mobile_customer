@@ -1,4 +1,4 @@
-/// A rider's saved address — Home, Work, or a custom label. Mirrors
+/// A customer's saved address — Home, Work, or a custom label. Mirrors
 /// `Mapcars.Api`'s `/api/v1/saved-places` shape; follows the same manual
 /// fromJson/toJson style as `ride/models/place.dart`.
 class SavedPlace {

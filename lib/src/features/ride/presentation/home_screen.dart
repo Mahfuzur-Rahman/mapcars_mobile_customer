@@ -37,7 +37,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _resumeActiveTrip();
   }
 
-  /// A rider whose app was killed mid-ride lands here, not on their tracking
+  /// A customer whose app was killed mid-ride lands here, not on their tracking
   /// map — the trip is still running server-side but the client forgot it.
   /// Re-attach and send them back to the screen matching its status.
   Future<void> _resumeActiveTrip() async {
