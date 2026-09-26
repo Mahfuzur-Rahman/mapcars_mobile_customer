@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/network/api_client.dart';
 import 'core/notifications/push_service.dart';
+import 'core/notifications/push_taps.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/widgets/offline_banner.dart';
@@ -21,6 +22,9 @@ class _MapcarsAppState extends ConsumerState<MapcarsApp>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Subscribed from the first frame so no tap is missed; acting on them waits
+    // for the splash to finish restoring the session (see PushTaps).
+    ref.read(pushTapsProvider).listen();
   }
 
   @override

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -22,13 +24,26 @@ class TripAlerts {
       FlutterLocalNotificationsPlugin();
   bool _ready = false;
 
+  /// Receives the payload of an alert the customer tapped while the app was
+  /// alive. Set by `PushTaps`, which routes it exactly like an FCM tap — the
+  /// payload deliberately has the same shape as the API's `tripStatus` push.
+  void Function(Map<String, dynamic> data)? onTap;
+
   Future<void> _ensureReady() async {
     if (_ready) return;
     try {
-      await _plugin.initialize(const InitializationSettings(
-        android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-        iOS: DarwinInitializationSettings(),
-      ));
+      await _plugin.initialize(
+        const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          iOS: DarwinInitializationSettings(),
+        ),
+        // Read through the field at tap time, not captured now: the plugin is
+        // initialised lazily by the first alert, possibly before anyone set it.
+        onDidReceiveNotificationResponse: (response) {
+          final data = _decode(response.payload);
+          if (data != null) onTap?.call(data);
+        },
+      );
 
       // Max importance so Android renders it as a heads-up banner over whatever
       // the customer is doing. A quiet tray entry is no use to someone standing at
@@ -48,29 +63,68 @@ class TripAlerts {
     }
   }
 
+  /// The payload of the alert that launched the app from killed, if one did —
+  /// the local-notification counterpart of FCM's `getInitialMessage`.
+  ///
+  /// Deliberately does not initialise the plugin: on iOS that raises the
+  /// notification permission prompt, and every OS prompt has to queue through
+  /// `PermissionGate` rather than fire at launch. Launch details don't need it.
+  Future<Map<String, dynamic>?> launchTap() async {
+    try {
+      final details = await _plugin.getNotificationAppLaunchDetails();
+      if (details?.didNotificationLaunchApp != true) return null;
+      return _decode(details!.notificationResponse?.payload);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[alerts] launch details failed: $e');
+      return null;
+    }
+  }
+
   /// The driver is at the pickup. [pin] is shown in the notification body so the
   /// customer has it without unlocking into the app.
-  Future<void> driverArrived({String? driverName, String? pin}) => _show(
+  Future<void> driverArrived({String? tripId, String? driverName, String? pin}) =>
+      _show(
         id: 8801,
         title: '${driverName ?? 'Your driver'} has arrived',
         body: pin == null
             ? 'Head out to meet your driver.'
             : 'Head out and give them PIN $pin to start the trip.',
+        payload: _tripPayload(tripId, 'DriverArrived'),
       );
 
   /// A driver took the job and is now driving to the pickup.
-  Future<void> driverOnTheWay({String? driverName, String? etaLabel}) => _show(
+  Future<void> driverOnTheWay(
+          {String? tripId, String? driverName, String? etaLabel}) =>
+      _show(
         id: 8802,
         title: '${driverName ?? 'A driver'} is on the way',
         body: etaLabel == null
             ? 'Your driver is heading to your pickup.'
             : 'Arriving in about $etaLabel.',
+        payload: _tripPayload(tripId, 'DriverAssigned'),
       );
+
+  /// Same keys and values as the API's `tripStatus` push, so one routing
+  /// decision (`pushTargetFor`) serves both kinds of tap.
+  static String? _tripPayload(String? tripId, String status) => tripId == null
+      ? null
+      : jsonEncode({'type': 'tripStatus', 'tripId': tripId, 'status': status});
+
+  static Map<String, dynamic>? _decode(String? payload) {
+    if (payload == null || payload.isEmpty) return null;
+    try {
+      final data = jsonDecode(payload);
+      return data is Map<String, dynamic> ? data : null;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> _show({
     required int id,
     required String title,
     required String body,
+    String? payload,
   }) async {
     await _ensureReady();
     if (!_ready) return;
@@ -91,6 +145,7 @@ class TripAlerts {
           ),
           iOS: DarwinNotificationDetails(),
         ),
+        payload: payload,
       );
       await HapticFeedback.heavyImpact();
     } catch (e) {

@@ -409,12 +409,13 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     switch (trip.status) {
       case TripStatus.driverAssigned:
         if (_assignAlerted.add(trip.id)) {
-          unawaited(alerts.driverOnTheWay(driverName: trip.driver?.name));
+          unawaited(alerts.driverOnTheWay(
+              tripId: trip.id, driverName: trip.driver?.name));
         }
       case TripStatus.driverArrived:
         if (_arrivalAlerted.add(trip.id)) {
           unawaited(alerts.driverArrived(
-              driverName: trip.driver?.name, pin: trip.pin));
+              tripId: trip.id, driverName: trip.driver?.name, pin: trip.pin));
         }
       default:
         break;
@@ -536,6 +537,45 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
       return trip;
     } catch (_) {
       return null;
+    }
+  }
+
+  /// Brings the flow up to date with [tripId] before a notification tap opens
+  /// a screen about it. The push is a snapshot and the app may have been
+  /// closed or asleep since, so the trip is re-read rather than trusted:
+  /// the screens behind `RideGate` show whatever [RideFlowState.activeTrip]
+  /// says, and a stale one there is a customer looking at the wrong ride.
+  ///
+  /// Everything enters through [_applyTrip] (via [refreshActiveTrip] /
+  /// [resumeTrip]) like every other trip update. Best-effort: on failure the
+  /// state is left alone and `RideGate` resolves the ride itself.
+  Future<void> syncTripForPush(String tripId) async {
+    final current = state.activeTrip;
+    if (current?.id == tripId) {
+      await refreshActiveTrip();
+      return;
+    }
+    // A different ride still under way is the one this customer is on; a tap
+    // about another trip must not swap it out from under them.
+    if (current != null &&
+        (current.status == TripStatus.requested || current.status.isActive)) {
+      return;
+    }
+    try {
+      final trip = await _repo.getTrip(tripId);
+      if (!mounted) return;
+      if (trip.status == TripStatus.requested || trip.status.isActive) {
+        // Live: re-join realtime and seed the car, exactly as on app restart.
+        await resumeTrip(trip);
+      } else if (trip.status == TripStatus.completed) {
+        // What the completed screen is about. Nothing left to push, so no
+        // realtime — same as [loadLastCompletedTrip].
+        state = state.copyWith(clearError: true);
+        _applyTrip(trip);
+      }
+      // Cancelled / expired: the tap lands on home, which needs nothing here.
+    } catch (_) {
+      // Offline or refused — the gate's own lookup covers it.
     }
   }
 

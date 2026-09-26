@@ -94,12 +94,14 @@ class _SpyAlerts extends TripAlerts {
   final List<String> raised = [];
 
   @override
-  Future<void> driverArrived({String? driverName, String? pin}) async {
+  Future<void> driverArrived(
+      {String? tripId, String? driverName, String? pin}) async {
     raised.add('arrived:$pin');
   }
 
   @override
-  Future<void> driverOnTheWay({String? driverName, String? etaLabel}) async {
+  Future<void> driverOnTheWay(
+      {String? tripId, String? driverName, String? etaLabel}) async {
     raised.add('onTheWay');
   }
 }
@@ -190,4 +192,53 @@ void main() {
         TripStatus.driverArrived);
     expect(h.alerts.raised, contains('arrived:4821'));
   }, timeout: const Timeout(Duration(seconds: 30)));
+
+  // Notification taps: before a tapped push opens a ride screen, the flow is
+  // brought up to date with that trip (the screens take no trip id — they show
+  // `activeTrip`).
+  group('syncTripForPush', () {
+    test('a tap on a cold app adopts the tapped live trip', () async {
+      final h = _harness(_trip(TripStatus.driverArrived));
+      final notifier = h.container.read(rideFlowProvider.notifier);
+      expect(h.container.read(rideFlowProvider).activeTrip, isNull);
+
+      await notifier.syncTripForPush(_tripId);
+
+      final trip = h.container.read(rideFlowProvider).activeTrip;
+      expect(trip?.id, _tripId);
+      expect(trip?.status, TripStatus.driverArrived);
+    });
+
+    test('a stale trip in state is re-read, through the funnel', () async {
+      final h = _harness(_trip(TripStatus.requested));
+      final notifier = h.container.read(rideFlowProvider.notifier);
+      await _book(notifier);
+
+      // The push says the driver is here; the app slept through it.
+      h.repo.current = _trip(TripStatus.driverArrived);
+      await notifier.syncTripForPush(_tripId);
+
+      expect(h.container.read(rideFlowProvider).activeTrip?.status,
+          TripStatus.driverArrived);
+      expect(h.alerts.raised, contains('arrived:4821'));
+    });
+
+    test('a tap about another trip never replaces a live ride', () async {
+      final h = _harness(_trip(TripStatus.inProgress));
+      final notifier = h.container.read(rideFlowProvider.notifier);
+      await _book(notifier);
+
+      h.repo.current = Trip.fromJson({
+        'id': 'trip-old',
+        'status': TripStatus.completed.name,
+        'pickup': {'label': 'A', 'lat': 51.5, 'lng': -0.1},
+        'dropoff': {'label': 'B', 'lat': 51.6, 'lng': -0.2},
+      });
+      await notifier.syncTripForPush('trip-old');
+
+      final trip = h.container.read(rideFlowProvider).activeTrip;
+      expect(trip?.id, _tripId);
+      expect(trip?.status, TripStatus.inProgress);
+    });
+  });
 }

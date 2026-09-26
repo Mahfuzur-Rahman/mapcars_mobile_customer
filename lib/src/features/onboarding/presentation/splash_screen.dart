@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
+import '../../../core/notifications/push_taps.dart';
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
 import '../../ride/providers/fare_chart_provider.dart';
@@ -24,6 +25,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
   /// Restore any persisted session, then route the customer to the right place.
   Future<void> _boot() async {
+    // Read up front: `ref` is unusable once the splash is gone, and the customer
+    // can tap past it to /intro while this is still running.
+    final pushTaps = ref.read(pushTapsProvider);
+
     // Warm the two public config calls the booking flow needs the instant it
     // opens. Fire-and-forget on purpose: the splash must never gain a blocking
     // dependency on a config fetch, and both have their own fallbacks. The
@@ -33,7 +38,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     await ref.read(authNotifierProvider.notifier).restore();
     await Future<void>.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
+
+    // Only now — session restored, router settled — may a notification tap
+    // navigate. A tap that launched the app decides where a signed-in customer
+    // lands; otherwise it's the usual home / intro.
+    final openedFromPush = await pushTaps.becomeReady();
+    if (!mounted || openedFromPush) return;
     final loggedIn = ref.read(authNotifierProvider).isAuthenticated;
     context.go(loggedIn ? '/home' : '/intro');
   }
