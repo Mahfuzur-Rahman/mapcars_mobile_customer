@@ -5,7 +5,6 @@ import '../../../core/network/api_client.dart';
 import '../models/chat_message.dart';
 import '../models/driver_location.dart';
 import '../models/place.dart';
-import '../models/ride_quote.dart';
 import '../models/trip.dart';
 
 /// Contract the ride flow programs against, implemented by [DioRideRepository]
@@ -13,10 +12,6 @@ import '../models/trip.dart';
 /// for the pre-API prototype; it was removed once the trips endpoints shipped,
 /// so there is no path left that can serve invented trips.
 abstract class RideRepository {
-  Future<List<Place>> searchPlaces(String query);
-
-  Future<RideQuote> quote({required Place pickup, required Place dropoff});
-
   Future<Trip> requestTrip({
     required Place pickup,
     required Place dropoff,
@@ -56,47 +51,16 @@ abstract class RideRepository {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Real implementation — PROPOSED contract. These endpoints do not exist on the
-// API yet; align them with the controller once the trips slice is built, then
-// flip [rideRepositoryProvider] from the mock to this. The shapes deliberately
-// mirror the backend `Trip` entity and `TripStatus` enum.
+// The live implementation, against the API's `/api/v1/trips` endpoints.
+// Prices are not fetched here: the app prices on-device from the fare chart
+// (`rideQuoteProvider`) and the API re-prices authoritatively at booking.
+// Place search goes straight to Google (`MapsService.autocomplete`).
 // ─────────────────────────────────────────────────────────────────────────────
 class DioRideRepository implements RideRepository {
   DioRideRepository(this._dio);
   final Dio _dio;
 
-  static const _base = '/api/v1/trips'; // PROPOSED
-
-  @override
-  Future<List<Place>> searchPlaces(String query) => apiCall(() async {
-        final res = await _dio.get<List<dynamic>>(
-          '/api/v1/places/search',
-          queryParameters: {'q': query},
-        );
-        return (res.data ?? [])
-            .map((e) => Place.fromJson(e as Map<String, dynamic>))
-            .toList(growable: false);
-      });
-
-  @override
-  Future<RideQuote> quote({required Place pickup, required Place dropoff}) =>
-      apiCall(() async {
-        // Server-side quote (secondary path — the app normally prices locally
-        // from the fare chart via rideQuoteProvider). Distance 0 lets the API
-        // estimate from the straight-line distance.
-        final res = await _dio.post<Map<String, dynamic>>(
-          '$_base/quote',
-          data: {
-            'pickupLat': pickup.lat,
-            'pickupLng': pickup.lng,
-            'dropoffLat': dropoff.lat,
-            'dropoffLng': dropoff.lng,
-            'distanceMiles': 0,
-            'durationMinutes': 0,
-          },
-        );
-        return RideQuote.fromJson(res.data!);
-      });
+  static const _base = '/api/v1/trips';
 
   @override
   Future<Trip> requestTrip({

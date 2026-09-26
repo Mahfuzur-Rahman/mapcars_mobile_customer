@@ -23,17 +23,4 @@ class RideOption {
 
   String get formattedEta => '$etaMinutes min away';
   String get formattedPrice => formatGbp(pricePence);
-
-  factory RideOption.fromJson(Map<String, dynamic> j) => RideOption(
-        id: j['id'] as String,
-        tier: (j['tier'] ?? '') as String,
-        name: j['name'] as String,
-        etaMinutes: (j['etaMinutes'] as num?)?.toInt() ?? 0,
-        pricePence: (j['pricePence'] as num?)?.toInt() ??
-            ((j['price'] as num?) != null
-                ? ((j['price'] as num) * 100).round()
-                : 0),
-        description: (j['description'] ?? '') as String,
-        icon: (j['icon'] ?? 'car') as String,
-      );
 }

@@ -16,7 +16,6 @@ import 'package:mapcars_mobile/src/core/notifications/trip_alerts.dart';
 import 'package:mapcars_mobile/src/features/ride/models/chat_message.dart';
 import 'package:mapcars_mobile/src/features/ride/models/driver_location.dart';
 import 'package:mapcars_mobile/src/features/ride/models/place.dart';
-import 'package:mapcars_mobile/src/features/ride/models/ride_quote.dart';
 import 'package:mapcars_mobile/src/features/ride/models/trip.dart';
 import 'package:mapcars_mobile/src/features/ride/models/trip_status.dart';
 import 'package:mapcars_mobile/src/features/ride/providers/ride_flow_notifier.dart';
@@ -73,11 +72,6 @@ class _FakeRepo implements RideRepository {
   Future<Trip> extendTrip(String id) async => current;
   @override
   Future<List<ChatMessage>> getMessages(String tripId) async => const [];
-  @override
-  Future<RideQuote> quote({required Place pickup, required Place dropoff}) =>
-      throw UnimplementedError();
-  @override
-  Future<List<Place>> searchPlaces(String query) async => const [];
   @override
   Future<ChatMessage> sendMessage(String tripId, {required String content}) =>
       throw UnimplementedError();

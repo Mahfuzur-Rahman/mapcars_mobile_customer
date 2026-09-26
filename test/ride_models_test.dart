@@ -14,22 +14,18 @@ void main() {
     expect(formatGbp(0), '£0.00');
   });
 
-  group('RideOption.fromJson', () {
-    test('reads pricePence directly', () {
-      final o = RideOption.fromJson({
-        'id': 'economy',
-        'name': 'Economy',
-        'etaMinutes': 3,
-        'pricePence': 890,
-      });
-      expect(o.formattedPrice, '£8.90');
-      expect(o.formattedEta, '3 min away');
-    });
-
-    test('falls back to a decimal "price" field', () {
-      final o = RideOption.fromJson({'id': 'x', 'name': 'X', 'price': 8.9});
-      expect(o.pricePence, 890);
-    });
+  test('RideOption formats its price and pickup ETA', () {
+    const o = RideOption(
+      id: 'economy',
+      tier: 'economy',
+      name: 'Economy',
+      etaMinutes: 3,
+      pricePence: 890,
+      description: 'Everyday rides',
+      icon: 'car',
+    );
+    expect(o.formattedPrice, '£8.90');
+    expect(o.formattedEta, '3 min away');
   });
 
   group('TripStatus.fromApi', () {

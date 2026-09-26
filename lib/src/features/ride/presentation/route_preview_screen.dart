@@ -13,7 +13,7 @@ import '../services/maps_service.dart';
 
 /// Shows the driving route from the customer's current location to [destination],
 /// drawn on a Google map with distance + ETA — the "directions like Google Maps"
-/// view. Continues into the (mock) ride-selection flow.
+/// view. Continues into ride selection.
 class RoutePreviewScreen extends ConsumerStatefulWidget {
   const RoutePreviewScreen({super.key, required this.destination});
   final Place destination;
