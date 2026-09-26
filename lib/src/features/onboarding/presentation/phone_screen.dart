@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
+import '../../auth/services/apple_sign_in_service.dart';
 
 enum AuthTab { phone, email }
 
@@ -53,6 +54,17 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
     setState(() => _localError = null);
     final ok =
         await ref.read(authNotifierProvider.notifier).continueWithGoogle(signUp: true);
+    if (!ok || !mounted) return;
+    final complete = ref.read(authNotifierProvider).isProfileComplete;
+    context.go(complete ? '/home' : '/profile-setup');
+  }
+
+  /// Same landing rules as Google: a new Apple account has no phone yet, so it
+  /// goes through profile setup.
+  Future<void> _continueWithApple() async {
+    setState(() => _localError = null);
+    final ok =
+        await ref.read(authNotifierProvider.notifier).continueWithApple(signUp: true);
     if (!ok || !mounted) return;
     final complete = ref.read(authNotifierProvider).isProfileComplete;
     context.go(complete ? '/home' : '/profile-setup');
@@ -212,6 +224,16 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
               const SizedBox(height: 18),
               const McDividerLabel('or'),
               const SizedBox(height: 14),
+              // iOS only: App Review 4.8 requires it wherever Google sign-in
+              // is offered, and it isn't wired for Android at all.
+              if (AppleSignInService.isAvailable) ...[
+                McAppleButton(
+                  label: 'Continue with Apple',
+                  loading: auth.isLoading,
+                  onTap: auth.isLoading ? null : _continueWithApple,
+                ),
+                const SizedBox(height: 12),
+              ],
               McGoogleButton(
                 loading: auth.isLoading,
                 onTap: auth.isLoading ? null : _continueWithGoogle,

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import '../router/nav.dart';
 import '../theme/brand.dart';
@@ -882,6 +883,45 @@ class McGoogleButton extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// "Sign in with Apple" — the package's own button, which draws Apple's logo
+/// and sizes the system-font title to Apple's HIG (43% of the height), rather
+/// than a brand-styled lookalike: Apple rejects apps whose Apple button departs
+/// from the guidelines. Only the corner radius and height are ours, matched to
+/// [McGoogleButton] because the HIG requires it be no smaller than the other
+/// sign-in buttons beside it.
+///
+/// Callers show it on iOS only (`AppleSignInService.isAvailable`).
+class McAppleButton extends StatelessWidget {
+  const McAppleButton({
+    super.key,
+    this.label = 'Continue with Apple',
+    this.onTap,
+    this.loading = false,
+    this.height = 54,
+  });
+
+  /// One of Apple's three permitted titles: "Sign in with Apple",
+  /// "Sign up with Apple" or "Continue with Apple".
+  final String label;
+  final VoidCallback? onTap;
+  final bool loading;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = onTap != null && !loading;
+    return Opacity(
+      opacity: enabled ? 1 : 0.6,
+      child: SignInWithAppleButton(
+        text: label,
+        height: height,
+        borderRadius: BorderRadius.circular(16),
+        onPressed: enabled ? onTap : null,
       ),
     );
   }
