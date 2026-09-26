@@ -48,6 +48,8 @@ dependencies:
   intl: ^0.20.3
   pdf: ^3.13.0
   printing: ^5.15.0
+  sign_in_with_apple: ^8.2.0
+  crypto: ^3.0.7
 
 dev_dependencies:
   flutter_test:

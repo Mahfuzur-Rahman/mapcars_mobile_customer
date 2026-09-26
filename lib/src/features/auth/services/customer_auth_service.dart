@@ -208,6 +208,28 @@ class CustomerAuthService {
         return AuthResult.fromJson(res.data!);
       });
 
+  /// Same response and the same [signUp] rule as [signInWithGoogle]. [nonce] is
+  /// the **raw** nonce: the API checks the token's claim equals its SHA-256.
+  /// [fullName] is only known on the customer's first Apple authorisation.
+  Future<AuthResult> signInWithApple(
+    String idToken, {
+    required String nonce,
+    String? fullName,
+    bool signUp = false,
+  }) =>
+      apiCall(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '$_base/apple',
+          data: {
+            'idToken': idToken,
+            'nonce': nonce,
+            'fullName': fullName,
+            'signUp': signUp,
+          },
+        );
+        return AuthResult.fromJson(res.data!);
+      });
+
   // ── Profile ───────────────────────────────────────────────────────────────
 
   Future<CustomerProfile> getProfile() => apiCall(() async {
