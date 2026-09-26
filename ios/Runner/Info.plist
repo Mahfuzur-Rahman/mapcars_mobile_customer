@@ -12,6 +12,13 @@
 		<string>Mapcars requires photo library access to allow you to select and upload a profile picture.</string>
 		<key>ITSAppUsesNonExemptEncryption</key>
 		<false/>
+		<!-- `remote-notification` lets a data-only FCM message wake the app while
+		     backgrounded; without it trip pushes only arrive once the user
+		     foregrounds the app. -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>remote-notification</string>
+		</array>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>
