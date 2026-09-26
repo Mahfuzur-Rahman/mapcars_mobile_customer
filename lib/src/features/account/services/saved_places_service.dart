@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../models/saved_place.dart';
 
-/// Talks to the rider "saved places" endpoints (Home/Work/custom addresses).
+/// Talks to the customer "saved places" endpoints (Home/Work/custom addresses).
 /// Mirrors `Mapcars.Api/Controllers/SavedPlacesController.cs`
-/// (`/api/v1/saved-places`) — rider-only.
+/// (`/api/v1/saved-places`) — customer-only.
 class SavedPlacesService {
   SavedPlacesService(this._dio);
   final Dio _dio;

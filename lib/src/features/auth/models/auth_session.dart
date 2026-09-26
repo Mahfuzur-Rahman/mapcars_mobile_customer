@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-/// The persisted slice of an authenticated rider — written to secure storage
+/// The persisted slice of an authenticated customer — written to secure storage
 /// after login and restored on the next app launch. Transient UI state
 /// (loading flags, errors, dev OTP) lives in [AuthState] and is never persisted.
 class AuthSession {

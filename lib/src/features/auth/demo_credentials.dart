@@ -17,12 +17,12 @@ class DemoCredentials {
   /// The accepted demo verification code.
   static const otp = '000000';
 
-  static const userId = 'demo-rider';
-  static const fullName = 'Demo Rider';
-  static const email = 'demo.rider@mapcars.co.uk';
+  static const userId = 'demo-customer';
+  static const fullName = 'Demo Customer';
+  static const email = 'demo.customer@mapcars.co.uk';
 
   /// A long-lived fake token so the persisted session survives restarts.
-  static const token = 'demo-token-rider';
+  static const token = 'demo-token-customer';
   static const sessionMinutes = 60 * 24 * 30; // 30 days
 }
 

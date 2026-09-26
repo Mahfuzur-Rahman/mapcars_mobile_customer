@@ -9,7 +9,7 @@ import '../../../core/config/env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
-import '../../auth/services/rider_auth_service.dart';
+import '../../auth/services/customer_auth_service.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -131,7 +131,7 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
                                 else if (auth.hasProfilePicture && token != null)
                                   ClipOval(
                                     child: Image.network(
-                                      ref.read(riderAuthServiceProvider).profilePictureUrl(Env.apiBaseUrl),
+                                      ref.read(customerAuthServiceProvider).profilePictureUrl(Env.apiBaseUrl),
                                       headers: {'Authorization': 'Bearer $token'},
                                       width: 92,
                                       height: 92,

@@ -35,7 +35,7 @@ class ErrorReporter {
     receiveTimeout: const Duration(seconds: 8),
   ));
 
-  /// The screen the rider was on, kept current by the router so a report says
+  /// The screen the customer was on, kept current by the router so a report says
   /// where it happened, not just what happened.
   static String? currentRoute;
 

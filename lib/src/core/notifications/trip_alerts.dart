@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-/// On-device alerts for the two trip moments a rider must not miss: a driver
+/// On-device alerts for the two trip moments a customer must not miss: a driver
 /// accepting, and a driver arriving with the PIN to read out.
 ///
 /// This is deliberately **local**, not FCM. Server push depends on a Firebase
@@ -31,7 +31,7 @@ class TripAlerts {
       ));
 
       // Max importance so Android renders it as a heads-up banner over whatever
-      // the rider is doing. A quiet tray entry is no use to someone standing at
+      // the customer is doing. A quiet tray entry is no use to someone standing at
       // a kerb wondering where their car is.
       await _plugin
           .resolvePlatformSpecificImplementation<
@@ -49,7 +49,7 @@ class TripAlerts {
   }
 
   /// The driver is at the pickup. [pin] is shown in the notification body so the
-  /// rider has it without unlocking into the app.
+  /// customer has it without unlocking into the app.
   Future<void> driverArrived({String? driverName, String? pin}) => _show(
         id: 8801,
         title: '${driverName ?? 'Your driver'} has arrived',
@@ -85,7 +85,7 @@ class TripAlerts {
             'Trip updates',
             importance: Importance.max,
             priority: Priority.high,
-            // The rider may be looking at the phone already; a banner alone can
+            // The customer may be looking at the phone already; a banner alone can
             // be missed on a bright street.
             enableVibration: true,
           ),

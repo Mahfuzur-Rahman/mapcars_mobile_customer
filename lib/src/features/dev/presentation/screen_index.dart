@@ -70,7 +70,7 @@ class ScreenIndexScreen extends ConsumerWidget {
                 children: [
                   for (int i = 0; i < entry.value.length; i++)
                     InkWell(
-                      // The ride screens resolve the rider's own trip through
+                      // The ride screens resolve the customer's own trip through
                       // `RideGate` — nothing is seeded for them here.
                       onTap: () => context.push(entry.value[i][1]),
                       child: Container(

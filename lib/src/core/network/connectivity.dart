@@ -12,7 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// thinks the radio is doing.
 ///
 /// The inverse case is the useful one: when this says *offline* it is almost
-/// always right, and that is the moment worth telling the rider about.
+/// always right, and that is the moment worth telling the customer about.
 final connectivityProvider = StreamProvider<bool>((ref) async* {
   final connectivity = Connectivity();
 
@@ -35,7 +35,7 @@ final connectivityProvider = StreamProvider<bool>((ref) async* {
 ///
 /// Assume connected until proven otherwise: a spurious "You're offline" while
 /// the first check is still in flight is worse than a late one, especially on
-/// a screen where the rider is waiting for a car.
+/// a screen where the customer is waiting for a car.
 final isOnlineProvider = Provider<bool>((ref) {
   return ref.watch(connectivityProvider).maybeWhen(
         data: (online) => online,

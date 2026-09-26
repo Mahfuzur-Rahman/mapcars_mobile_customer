@@ -29,10 +29,10 @@ class _MapcarsAppState extends ConsumerState<MapcarsApp>
     super.dispose();
   }
 
-  /// Android suspends a backgrounded app's sockets, and a rider waiting for a
+  /// Android suspends a backgrounded app's sockets, and a customer waiting for a
   /// car spends most of that wait with the app behind something else or the
   /// screen off. Coming back has to re-read the trip and re-establish realtime;
-  /// assuming the connection survived is how riders returned to a stale
+  /// assuming the connection survived is how customers returned to a stale
   /// "Finding your driver…" with a car already outside.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {

@@ -3,7 +3,7 @@
 //
 // The rules that actually decide whether a request is still live live on the
 // server. What is tested here is the part that can be wrong without anyone
-// noticing: a rider being shown the wrong number of seconds.
+// noticing: a customer being shown the wrong number of seconds.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapcars_mobile/src/core/utils/server_clock.dart';
@@ -35,7 +35,7 @@ void main() {
       expect(TripStatus.expired.isOver, isTrue);
       expect(TripStatus.expired.isCancelled, isFalse);
       expect(TripStatus.expired.isActive, isFalse);
-      expect(TripStatus.cancelledByRider.isOver, isTrue);
+      expect(TripStatus.cancelledByCustomer.isOver, isTrue);
     });
   });
 
@@ -69,7 +69,7 @@ void main() {
 
     test('counts down on the server clock, not the device clock', () {
       // A phone running two minutes fast. The deadline is 60s away on the
-      // server, so that is what the rider must see — the naive device-clock
+      // server, so that is what the customer must see — the naive device-clock
       // answer here would be a countdown that already hit zero.
       ServerClock.offsetForTest = const Duration(minutes: -2);
       final deadline = DateTime.now().toUtc().subtract(const Duration(seconds: 60));

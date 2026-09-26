@@ -3,7 +3,7 @@
 /// Mirrors the backend `FareChart` (api/src/Mapcars.Application/Pricing/Models).
 /// The app caches this and computes an instant local estimate with
 /// [FareCalculator]; the API recomputes the fare authoritatively at booking from
-/// the same chart, so what the rider sees matches what they're charged.
+/// the same chart, so what the customer sees matches what they're charged.
 ///
 /// All money is integer **pence** (exact, no floating-point drift).
 library;

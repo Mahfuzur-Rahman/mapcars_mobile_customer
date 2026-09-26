@@ -7,7 +7,7 @@ import '../../../core/network/api_client.dart';
 import '../../../core/widgets/mc.dart';
 import '../../../core/widgets/support_sheets.dart';
 import '../../auth/providers/auth_notifier.dart';
-import '../../auth/services/rider_auth_service.dart';
+import '../../auth/services/customer_auth_service.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -50,7 +50,7 @@ class SettingsScreen extends ConsumerWidget {
                           if (auth.hasProfilePicture && token != null)
                             ClipOval(
                               child: Image.network(
-                                ref.read(riderAuthServiceProvider).profilePictureUrl(Env.apiBaseUrl),
+                                ref.read(customerAuthServiceProvider).profilePictureUrl(Env.apiBaseUrl),
                                 headers: {'Authorization': 'Bearer $token'},
                                 width: 62,
                                 height: 62,
@@ -69,7 +69,7 @@ class SettingsScreen extends ConsumerWidget {
                                 Text(auth.fullName ?? 'Add your name', style: tw(FontWeight.w900, 18)),
                                 const SizedBox(height: 3),
                                 Text(
-                                  auth.email ?? auth.phone ?? 'Signed in rider',
+                                  auth.email ?? auth.phone ?? 'Signed in customer',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: tw(FontWeight.w700, 13, Brand.sub),

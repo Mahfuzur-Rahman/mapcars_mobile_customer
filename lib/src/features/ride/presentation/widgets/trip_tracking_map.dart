@@ -43,7 +43,7 @@ class TripEta {
   }
 }
 
-/// The rider's live map: the driver's real car moving along a real route toward
+/// The customer's live map: the driver's real car moving along a real route toward
 /// [destination] (their pickup while waiting, their drop-off once on board).
 ///
 /// The driver's position comes from [driver] — pushed over SignalR by the
@@ -125,14 +125,14 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
 
   LatLng? _lastFitAt;
 
-  /// Riders pan the map to look around; don't yank it back under their finger.
+  /// Customers pan the map to look around; don't yank it back under their finger.
   bool _following = true;
   bool _selfMove = false;
 
   @override
   void initState() {
     super.initState();
-    // Blue: this is the rider's *own* driver. The scenery cars around it are
+    // Blue: this is the customer's *own* driver. The scenery cars around it are
     // pearl (see live_nearby_cars), so the colour alone identifies it even at
     // the zoom levels where the halo is off.
     drawCarIcon(Brand.blue).then((icon) {
@@ -209,7 +209,7 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
   }
 
   /// Fold a new driver fix into the glide, so the car drives to it over the next
-  /// few seconds instead of jumping. Without this the rider sees a car that
+  /// few seconds instead of jumping. Without this the customer sees a car that
   /// stands still and then teleports, which reads as a broken map rather than as
   /// someone driving toward them.
   void _absorbFix(DriverLocation? before, DriverLocation? now) {
@@ -272,7 +272,7 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
       _emitEta(from);
     } catch (_) {
       // A missing route just means the straight-line fallback in _emitEta and a
-      // direct line on the map — never an error banner on the rider's screen.
+      // direct line on the map — never an error banner on the customer's screen.
     } finally {
       _fetchingRoute = false;
     }
@@ -366,7 +366,7 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
     final ahead = _polylineAhead(driverAt);
     final legColour = widget.isPickup ? Brand.green : Brand.blue;
 
-    // Halo only while the car is coming *to* the rider. Once they're on board it
+    // Halo only while the car is coming *to* the customer. Once they're on board it
     // is their own car and needs no picking out, and a permanent ping on the
     // in-progress screen is just noise.
     final highlight = widget.isPickup && driver?.isStale != true;

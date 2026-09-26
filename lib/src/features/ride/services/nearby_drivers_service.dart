@@ -31,8 +31,8 @@ class NearbyDriver {
       );
 }
 
-/// Reads nearby online drivers from the API (Redis GEO). Rider-scoped — the
-/// Dio interceptor attaches the rider token; an unauthenticated call returns
+/// Reads nearby online drivers from the API (Redis GEO). Customer-scoped — the
+/// Dio interceptor attaches the customer token; an unauthenticated call returns
 /// 401 (handled by the caller as "no cars to show").
 class NearbyDriversService {
   NearbyDriversService(this._dio);

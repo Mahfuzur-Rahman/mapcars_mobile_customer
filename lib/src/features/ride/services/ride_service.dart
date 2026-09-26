@@ -42,7 +42,7 @@ abstract class RideRepository {
   Future<Trip> cancelTrip(String id, {String? reason});
 
   /// Give a still-open request another search window and put it back in front
-  /// of drivers — the rider's "keep searching" when nobody has taken it yet.
+  /// of drivers — the customer's "keep searching" when nobody has taken it yet.
   /// Throws if the search has already ended or the extensions are used up.
   Future<Trip> extendTrip(String id);
 
@@ -229,7 +229,7 @@ final rideRepositoryProvider = Provider<RideRepository>(
   (ref) => DioRideRepository(ref.watch(dioProvider)),
 );
 
-/// The signed-in rider's past trips (`GET /trips`), most recent first — backs
+/// The signed-in customer's past trips (`GET /trips`), most recent first — backs
 /// the Activity/history screen.
 final tripHistoryProvider = FutureProvider.autoDispose<List<Trip>>((ref) async {
   final trips = await ref.watch(rideRepositoryProvider).tripHistory();

@@ -4,7 +4,7 @@ import 'place.dart';
 import 'trip_status.dart';
 
 /// A requested/active/completed trip. Mirrors the backend `Trip` entity plus
-/// the rider-facing extras (assigned driver, meet-up PIN).
+/// the customer-facing extras (assigned driver, meet-up PIN).
 class Trip {
   const Trip({
     required this.id,
@@ -52,7 +52,7 @@ class Trip {
 
   /// Pricing snapshot (for the history list + receipt breakdown).
   final String? tier; // 'economy' | 'comfort' | 'xl' | 'premium'
-  final int tipPence; // rider tip, paid on top of the fare
+  final int tipPence; // customer tip, paid on top of the fare
   final double? distanceMiles;
   final double? durationMinutes;
 
@@ -61,10 +61,10 @@ class Trip {
   /// `createdAt` plus a duration this app happens to believe in.
   final DateTime? expiresAt;
 
-  /// How many times the rider has already extended the search.
+  /// How many times the customer has already extended the search.
   final int extensionCount;
 
-  /// Whether the rider may extend right now — decided by the server, rendered
+  /// Whether the customer may extend right now — decided by the server, rendered
   /// here. Don't re-derive it from [extensionCount].
   final bool canExtend;
 

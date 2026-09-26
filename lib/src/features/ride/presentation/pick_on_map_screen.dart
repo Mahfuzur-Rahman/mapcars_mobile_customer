@@ -13,7 +13,7 @@ import '../models/place_prediction.dart';
 import '../providers/search_history_provider.dart';
 import '../services/maps_service.dart';
 
-/// Interactive map screen allowing the rider to pan, drag, and drop a pin
+/// Interactive map screen allowing the customer to pan, drag, and drop a pin
 /// to pinpoint their exact desired location (e.g. alleyways, unmarked spots,
 /// or places not in Google suggestions) with automatic reverse geocoding.
 ///
@@ -424,7 +424,7 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
                 ),
 
                 // Suggestions. Capped and scrollable so a long list can never
-                // cover the pin the rider is trying to place.
+                // cover the pin the customer is trying to place.
                 if (_predictions.isNotEmpty || _searchError != null) ...[
                   const SizedBox(height: 8),
                   Container(

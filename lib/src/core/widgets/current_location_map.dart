@@ -30,7 +30,7 @@ class CurrentLocationMap extends StatefulWidget {
   /// (and again after a retry).
   final void Function(LatLng me)? onLocated;
 
-  /// Called once the camera stops moving, with what the rider is now looking
+  /// Called once the camera stops moving, with what the customer is now looking
   /// at: the map centre and the radius (metres) from it to the edge of the
   /// visible region. Lets a live layer re-query for the area actually on
   /// screen instead of forever around the first GPS fix.

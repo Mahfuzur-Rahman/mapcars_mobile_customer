@@ -28,7 +28,7 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
   @override
   void initState() {
     super.initState();
-    // The rider may have reopened the app mid-ride, having missed every
+    // The customer may have reopened the app mid-ride, having missed every
     // `driverLocation` push so far — seed the car's position over REST.
     Future.microtask(
         () => ref.read(rideFlowProvider.notifier).refreshDriverLocation());
@@ -44,8 +44,8 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
     final eta = _eta;
 
     // Move on once the driver marks the trip complete, or bounce home if it's
-    // cancelled out from under the rider mid-trip (e.g. the driver no-shows
-    // or cancels) — without this the rider was left staring at a stale map
+    // cancelled out from under the customer mid-trip (e.g. the driver no-shows
+    // or cancels) — without this the customer was left staring at a stale map
     // with no explanation.
     ref.listen<RideFlowState>(rideFlowProvider, (previous, next) {
       final status = next.activeTrip?.status;
@@ -214,7 +214,7 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
                     ),
                     const SizedBox(height: 10),
                     // Chat existed but was reachable only while waiting for the
-                    // driver — the rider lost it the moment they got in the car,
+                    // driver — the customer lost it the moment they got in the car,
                     // which is when "I left my bag on the seat" happens.
                     McBadge(
                       count: unread,

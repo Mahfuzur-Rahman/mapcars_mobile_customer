@@ -21,7 +21,7 @@ enum RideGateScope {
 /// — a driver called James K. in a silver Prius, an £8.01 fare, a Canary Wharf →
 /// Tower Bridge route — which is what the dev walkthrough (and any deep link or
 /// restart) showed. Null now means one of two honest things: we're still asking
-/// the API, or the rider genuinely has no such ride.
+/// the API, or the customer genuinely has no such ride.
 ///
 /// Resolution goes through the ride flow itself, so a ride recovered here is a
 /// fully live one: [RideFlowNotifier.resumeActiveTrip] re-joins the trip's

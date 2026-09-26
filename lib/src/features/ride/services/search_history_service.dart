@@ -10,7 +10,7 @@ import '../models/place.dart';
 ///
 /// This is view/UX convenience data, not business data — so it never touches
 /// the API or Postgres (see the project's "mobile owns no business data" rule).
-/// History is keyed by rider id, so two riders sharing a phone don't see each
+/// History is keyed by customer id, so two customers sharing a phone don't see each
 /// other's recents. If cross-device sync is ever needed, this becomes a cache
 /// in front of an API endpoint without changing callers.
 class SearchHistoryService {
@@ -24,7 +24,7 @@ class SearchHistoryService {
   String _key(String? userId) =>
       'search_history_${(userId == null || userId.isEmpty) ? 'guest' : userId}';
 
-  /// The rider's recent destinations, most-recent first. Empty if none/corrupt.
+  /// The customer's recent destinations, most-recent first. Empty if none/corrupt.
   List<Place> recents(String? userId) {
     final raw = _prefs.getString(_key(userId));
     if (raw == null || raw.isEmpty) return const [];

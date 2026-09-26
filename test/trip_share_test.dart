@@ -1,4 +1,4 @@
-// The "Share trip" message a rider sends from the Safety sheet.
+// The "Share trip" message a customer sends from the Safety sheet.
 //
 // This is a safety feature, so the failure that matters is not a crash — it is
 // a message that goes out missing the registration, or reading "London SE1 2UP
@@ -75,7 +75,7 @@ void main() {
       _trip(driver: _driver),
       driverPosition: const DriverLocation(lat: 51.5074, lng: -0.1278),
     );
-    // The wording must stay past-tense: the link is a snapshot, and a rider
+    // The wording must stay past-tense: the link is a snapshot, and a customer
     // relying on it as live tracking is the dangerous misreading.
     expect(msg, contains('Where we were when I sent this'));
     expect(msg.toLowerCase(), isNot(contains('live location')));

@@ -11,7 +11,7 @@ void main() {
     final session = AuthSession(
       token: 'jwt-123',
       expiresAt: DateTime.utc(2030, 1, 1, 12),
-      userId: 'rider-1',
+      userId: 'customer-1',
       fullName: 'Alex Morgan',
       email: 'alex@email.com',
       phone: '+447700900000',
@@ -110,7 +110,7 @@ void main() {
       final session = AuthSession(
         token: 'jwt',
         expiresAt: DateTime.now().add(const Duration(hours: 1)),
-        userId: 'rider-9',
+        userId: 'customer-9',
         fullName: 'Sam',
         isProfileComplete: true,
         isEmailVerified: false,
@@ -119,7 +119,7 @@ void main() {
 
       final state = AuthState.fromSession(session);
       expect(state.isAuthenticated, isTrue);
-      expect(state.userId, 'rider-9');
+      expect(state.userId, 'customer-9');
 
       final back = state.toSession();
       expect(back, isNotNull);

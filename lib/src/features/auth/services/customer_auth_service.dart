@@ -7,11 +7,11 @@ import '../../../core/network/api_client.dart';
 import '../demo_credentials.dart';
 import '../models/auth_state.dart';
 
-/// Result from `GET/PATCH /me` — the rider's full profile, richer than
+/// Result from `GET/PATCH /me` — the customer's full profile, richer than
 /// [AuthResult] (which is shared with login/signup).
-class RiderProfile {
-  const RiderProfile({
-    required this.riderId,
+class CustomerProfile {
+  const CustomerProfile({
+    required this.customerId,
     this.fullName,
     this.email,
     this.phone,
@@ -23,7 +23,7 @@ class RiderProfile {
     required this.isProfileComplete,
   });
 
-  final String riderId;
+  final String customerId;
   final String? fullName;
   final String? email;
   final String? phone;
@@ -34,8 +34,11 @@ class RiderProfile {
   final bool hasProfilePicture;
   final bool isProfileComplete;
 
-  factory RiderProfile.fromJson(Map<String, dynamic> j) => RiderProfile(
-        riderId: j['riderId'].toString(),
+  factory CustomerProfile.fromJson(Map<String, dynamic> j) => CustomerProfile(
+        // 'customerId' is the new key; 'riderId' is what an API older than the
+        // rename sends. The API emits both during the transition, so preferring
+        // the new one and falling back keeps this build working against either.
+        customerId: (j['customerId'] ?? j['riderId']).toString(),
         fullName: j['fullName'] as String?,
         email: j['email'] as String?,
         phone: j['phone'] as String?,
@@ -125,11 +128,11 @@ class AuthResult {
       );
 }
 
-class RiderAuthService {
-  RiderAuthService(this._dio);
+class CustomerAuthService {
+  CustomerAuthService(this._dio);
   final Dio _dio;
 
-  static const _base = '/api/v1/auth/riders';
+  static const _base = '/api/v1/auth/customers';
 
   /// Revokes this device's refresh token server-side. Shared across roles, so it
   /// lives at `/api/v1/auth/logout` rather than under the per-role base above.
@@ -222,12 +225,12 @@ class RiderAuthService {
 
   // ── Profile ───────────────────────────────────────────────────────────────
 
-  Future<RiderProfile> getProfile() => apiCall(() async {
+  Future<CustomerProfile> getProfile() => apiCall(() async {
         final res = await _dio.get<Map<String, dynamic>>('$_base/me');
-        return RiderProfile.fromJson(res.data!);
+        return CustomerProfile.fromJson(res.data!);
       });
 
-  Future<RiderProfile> updateProfile({
+  Future<CustomerProfile> updateProfile({
     required String fullName,
     String? email,
     String? emergencyContactName,
@@ -250,7 +253,7 @@ class RiderAuthService {
               'accessibilityNeeds': accessibilityNeeds,
           },
         );
-        return RiderProfile.fromJson(res.data!);
+        return CustomerProfile.fromJson(res.data!);
       });
 
   Future<void> changePassword({
@@ -267,7 +270,7 @@ class RiderAuthService {
         );
       });
 
-  Future<RiderProfile> uploadProfilePicture(File file) => apiCall(() async {
+  Future<CustomerProfile> uploadProfilePicture(File file) => apiCall(() async {
         final formData = FormData.fromMap({
           'file': await MultipartFile.fromFile(file.path),
         });
@@ -275,14 +278,14 @@ class RiderAuthService {
           '$_base/me/picture',
           data: formData,
         );
-        return RiderProfile.fromJson(res.data!);
+        return CustomerProfile.fromJson(res.data!);
       });
 
-  /// URL to fetch the rider's profile picture. Pass with an `Authorization`
+  /// URL to fetch the customer's profile picture. Pass with an `Authorization`
   /// header (see `Image.network(..., headers: ...)`).
   String profilePictureUrl(String baseUrl) => '$baseUrl$_base/me/picture';
 }
 
-final riderAuthServiceProvider = Provider<RiderAuthService>(
-  (ref) => RiderAuthService(ref.watch(dioProvider)),
+final customerAuthServiceProvider = Provider<CustomerAuthService>(
+  (ref) => CustomerAuthService(ref.watch(dioProvider)),
 );

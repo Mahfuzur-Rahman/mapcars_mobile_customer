@@ -1,9 +1,9 @@
 // The unread-message rule and its badge.
 //
 // Chat was previously invisible until opened: a driver asking "which entrance?"
-// got silence unless the rider happened to look. These pin the two ways that
+// got silence unless the customer happened to look. These pin the two ways that
 // could go wrong in the other direction — badging your own messages, or badging
-// a conversation the rider is already reading.
+// a conversation the customer is already reading.
 
 import 'dart:ui' show Tristate;
 
@@ -25,7 +25,7 @@ Widget _host(Widget child) =>
     MaterialApp(home: Scaffold(body: Center(child: child)));
 
 void main() {
-  group('unreadAfter (rider app: the other party is the driver)', () {
+  group('unreadAfter (customer app: the other party is the driver)', () {
     test("counts the driver's message when chat is closed", () {
       expect(
         unreadAfter(
@@ -37,7 +37,7 @@ void main() {
       );
     });
 
-    test('ignores it while the rider is reading the conversation', () {
+    test('ignores it while the customer is reading the conversation', () {
       expect(
         unreadAfter(
             current: 3,
@@ -48,13 +48,13 @@ void main() {
       );
     });
 
-    test("never counts the rider's own message", () {
+    test("never counts the customer's own message", () {
       // sendMessage appends optimistically and the push echoes back; badging
       // either would put a count on your own text.
       expect(
         unreadAfter(
             current: 2,
-            message: _msg('rider'),
+            message: _msg('customer'),
             otherParty: 'driver',
             chatOpen: false),
         2,

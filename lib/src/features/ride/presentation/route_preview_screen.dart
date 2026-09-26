@@ -11,7 +11,7 @@ import '../models/place.dart';
 import '../providers/ride_flow_notifier.dart';
 import '../services/maps_service.dart';
 
-/// Shows the driving route from the rider's current location to [destination],
+/// Shows the driving route from the customer's current location to [destination],
 /// drawn on a Google map with distance + ETA — the "directions like Google Maps"
 /// view. Continues into the (mock) ride-selection flow.
 class RoutePreviewScreen extends ConsumerStatefulWidget {

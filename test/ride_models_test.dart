@@ -42,7 +42,7 @@ void main() {
 
     test('maps the string wire form', () {
       expect(TripStatus.fromApi('InProgress'), TripStatus.inProgress);
-      expect(TripStatus.fromApi('CancelledByRider'), TripStatus.cancelledByRider);
+      expect(TripStatus.fromApi('CancelledByRider'), TripStatus.cancelledByCustomer);
     });
 
     test('classifies active and cancelled states', () {

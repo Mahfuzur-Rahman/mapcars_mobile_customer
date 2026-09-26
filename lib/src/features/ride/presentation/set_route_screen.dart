@@ -244,7 +244,7 @@ class _SetRouteScreenState extends ConsumerState<SetRouteScreen> {
     );
   }
 
-  /// Empty-query state: the rider's recent destinations (most-recent first),
+  /// Empty-query state: the customer's recent destinations (most-recent first),
   /// with a prominent "Set pin on map" option.
   Widget _buildRecents() {
     final recents = ref.watch(searchHistoryProvider);

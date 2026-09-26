@@ -7,7 +7,7 @@ import '../../../../core/theme/brand.dart';
 import '../../models/directions_result.dart';
 import '../../models/place.dart';
 
-/// The rider's actual pickup → drop-off on a real Google map.
+/// The customer's actual pickup → drop-off on a real Google map.
 ///
 /// Draws the route already fetched on the preview screen and carried in
 /// `RideFlowState.route`, so it costs **no** Directions call. With no route
@@ -16,7 +16,7 @@ import '../../models/place.dart';
 ///
 /// This replaces the decorative `MapBackground` the choose-ride / confirm /
 /// searching screens used to sit on, whose painted road layout and pins bore no
-/// relation to where the rider was actually going.
+/// relation to where the customer was actually going.
 class StaticRouteMap extends StatefulWidget {
   const StaticRouteMap({
     super.key,

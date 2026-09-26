@@ -90,15 +90,15 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
         ref.watch(rideFlowProvider.select((s) => s.unreadMessages));
 
     // React to the real trip: move on once the driver starts the trip, or
-    // bounce home if it's cancelled out from under the rider (e.g. the driver
-    // cancelled or no-showed) — the rider-initiated cancel path already
+    // bounce home if it's cancelled out from under the customer (e.g. the driver
+    // cancelled or no-showed) — the customer-initiated cancel path already
     // navigates itself (see `confirmCancelRide` below).
     ref.listen<RideFlowState>(rideFlowProvider, (previous, next) {
       final status = next.activeTrip?.status;
       if (status == TripStatus.driverArrived &&
           previous?.activeTrip?.status != TripStatus.driverArrived) {
         // The sheet may be scrolled down from reading the driver's details;
-        // bring the PIN back into view rather than trusting the rider to find it.
+        // bring the PIN back into view rather than trusting the customer to find it.
         if (_sheetScroll.hasClients) _sheetScroll.jumpTo(0);
       }
       if (status == TripStatus.inProgress) {
@@ -145,7 +145,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    // Arrival is the one moment on this screen the rider has to
+                    // Arrival is the one moment on this screen the customer has to
                     // act on, so it doesn't share the neutral en-route pill.
                     color: arrived ? Brand.green : Brand.ink,
                     borderRadius: BorderRadius.circular(16),
@@ -210,7 +210,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Once the driver is at the kerb the PIN is the only thing
-                    // the rider needs, so it moves to the top of the sheet. It
+                    // the customer needs, so it moves to the top of the sheet. It
                     // used to sit below the driver card and the meet-at row,
                     // i.e. below the fold on a small phone, at exactly the
                     // moment someone is being asked to read it out.
@@ -307,7 +307,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
 /// Shows a "cancel this ride?" confirmation with an optional reason field,
 /// then calls [RideFlowNotifier.cancelActiveTrip] — only leaving the screen
 /// once the cancel actually succeeds. Shared by [TrackingScreen] and
-/// [InProgressScreen] (both let the rider cancel while a trip is active).
+/// [InProgressScreen] (both let the customer cancel while a trip is active).
 Future<void> confirmCancelRide(BuildContext context, WidgetRef ref) async {
   final reasonController = TextEditingController();
   final confirmed = await showDialog<bool>(
@@ -364,7 +364,7 @@ Future<void> confirmCancelRide(BuildContext context, WidgetRef ref) async {
   context.go('/home');
 }
 
-/// The rider's meet-up code. The driver types it in on their side before the
+/// The customer's meet-up code. The driver types it in on their side before the
 /// trip can start, which is what stops someone getting into the wrong car (or
 /// the wrong passenger getting into this one).
 class _PinCard extends StatelessWidget {
