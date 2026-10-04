@@ -68,63 +68,66 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
 
     return Scaffold(
       backgroundColor: Brand.bg,
+      // The primary action is pinned in an McActionBar: it pads itself by the
+      // bottom inset (so no SafeArea there) and rides above the keyboard. The
+      // error sits with it, so it is on screen after a failed submit. The header
+      // scrolls with the form: a bar grown by an error must not squeeze the
+      // fields into a sliver above it.
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const McNavHeader(title: 'Change password', fallback: '/account'),
-              const SizedBox(height: 22),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      McField(
-                        icon: 'lock',
-                        placeholder: 'Current password',
-                        controller: _currentCtrl,
-                        editable: true,
-                        obscure: true,
-                      ),
-                      const SizedBox(height: 12),
-                      McField(
-                        icon: 'lock',
-                        placeholder: 'New password',
-                        controller: _newCtrl,
-                        editable: true,
-                        obscure: true,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'At least 8 characters, one uppercase letter, one digit.',
-                        style: tw(FontWeight.w600, 12, Brand.sub),
-                      ),
-                      const SizedBox(height: 12),
-                      McField(
-                        icon: 'lock',
-                        placeholder: 'Confirm new password',
-                        controller: _confirmCtrl,
-                        editable: true,
-                        obscure: true,
-                      ),
-                      if (error != null) ...[
-                        const SizedBox(height: 12),
-                        Text(error, style: tw(FontWeight.w600, 13, Colors.red)),
-                      ],
-                    ],
-                  ),
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const McNavHeader(title: 'Change password', fallback: '/account'),
+                    const SizedBox(height: 22),
+                    McField(
+                      icon: 'lock',
+                      placeholder: 'Current password',
+                      controller: _currentCtrl,
+                      editable: true,
+                      obscure: true,
+                    ),
+                    const SizedBox(height: 12),
+                    McField(
+                      icon: 'lock',
+                      placeholder: 'New password',
+                      controller: _newCtrl,
+                      editable: true,
+                      obscure: true,
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'At least 8 characters, one uppercase letter, one digit.',
+                      style: tw(FontWeight.w600, 12, Brand.sub),
+                    ),
+                    const SizedBox(height: 12),
+                    McField(
+                      icon: 'lock',
+                      placeholder: 'Confirm new password',
+                      controller: _confirmCtrl,
+                      editable: true,
+                      obscure: true,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              McButton(
-                auth.isLoading ? 'Saving…' : 'Change password',
-                icon: auth.isLoading ? null : 'check',
-                onTap: auth.isLoading ? null : _submit,
-              ),
-            ],
-          ),
+            ),
+            McActionBar(
+              notice: error == null ? null : McErrorBanner(error),
+              children: [
+                McButton(
+                  auth.isLoading ? 'Saving…' : 'Change password',
+                  icon: auth.isLoading ? null : 'check',
+                  onTap: auth.isLoading ? null : _submit,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

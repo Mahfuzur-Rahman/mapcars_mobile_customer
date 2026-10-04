@@ -650,7 +650,12 @@ class _KeyboardLift extends StatelessWidget {
 /// iOS under the home indicator (~34dp). A button laid out there is covered and
 /// its taps go to the system.
 class McActionBar extends StatelessWidget {
-  const McActionBar({super.key, required this.children, this.color = Brand.bg});
+  const McActionBar({
+    super.key,
+    required this.children,
+    this.color = Brand.bg,
+    this.notice,
+  });
 
   /// One or two buttons. A third stacked full-width button would take most of
   /// a small screen, so it is not allowed.
@@ -659,8 +664,37 @@ class McActionBar extends StatelessWidget {
   /// The page's background colour, so the bar reads as the foot of the page.
   final Color color;
 
+  /// A message about the buttons below it — a failed submit's error. It sits
+  /// inside the bar, so it is on screen whenever the button is: an error left
+  /// at the end of the scroll body lands below the visible area (or under the
+  /// keyboard) when the pinned button is the thing the customer just tapped.
+  ///
+  /// Capped (see [noticeMaxHeight]) and scrolls inside itself when longer, so a
+  /// long message can never push the buttons off the screen. The text is never
+  /// truncated: the "Ref:" line in an error is what support asks for.
+  final Widget? notice;
+
+  /// The tallest the [notice] may grow: about three lines of body text at the
+  /// current text scale (plus an error banner's padding), or a quarter of what
+  /// is visible above the keyboard — whichever is smaller.
+  ///
+  /// Read through the MediaQuery aspects (not View.of, which never
+  /// notifies), so a notice already showing is re-capped when the keyboard
+  /// opens. Inside a resizing Scaffold the body's MediaQuery has the keyboard
+  /// already removed, so there the quarter is of the full screen and the
+  /// three-line limit is what binds.
+  static double noticeMaxHeight(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final visible = size.height - keyboard;
+    final threeLines = MediaQuery.textScalerOf(context).scale(13.5) * 1.45 * 3 + 24;
+    return math.min(threeLines, visible * 0.25);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Checked here rather than in the const constructor, where reading a list's
+    // length would break `const McActionBar(children: [...])`.
     assert(children.isNotEmpty && children.length <= 2,
         'McActionBar holds one or two buttons, not ${children.length}.');
     return Container(
@@ -675,6 +709,20 @@ class McActionBar extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (notice != null) ...[
+            // As tall as the message up to the cap, then it scrolls. shrinkWrap sizes
+            // the viewport to its content (a plain ListView would fill the cap).
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: noticeMaxHeight(context)),
+              child: ListView(
+                shrinkWrap: true,
+                primary: false,
+                padding: EdgeInsets.zero,
+                children: [notice!],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
           for (var i = 0; i < children.length; i++) ...[
             if (i > 0) const SizedBox(height: 10),
             children[i],

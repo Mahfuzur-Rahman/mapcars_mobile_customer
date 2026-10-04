@@ -127,7 +127,7 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
           ),
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 18, 20, 30),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -185,15 +185,22 @@ class _ReceiptScreenState extends State<ReceiptScreen> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  McGhostButton(
-                    _isGenerating ? 'Preparing receipt…' : 'Download receipt',
-                    icon: 'receipt',
-                    onTap: _isGenerating ? null : () => _downloadReceipt(t),
-                  ),
                 ],
               ),
             ),
+          ),
+          // The page's one action, pinned: under the 250dp map and the card it
+          // used to end the scroll, off the screen on a small phone. The page
+          // has no SafeArea (the map runs to the top edge), so the bar's own
+          // bottom inset is what keeps it clear of the system bar.
+          McActionBar(
+            children: [
+              McGhostButton(
+                _isGenerating ? 'Preparing receipt…' : 'Download receipt',
+                icon: 'receipt',
+                onTap: _isGenerating ? null : () => _downloadReceipt(t),
+              ),
+            ],
           ),
         ],
       ),

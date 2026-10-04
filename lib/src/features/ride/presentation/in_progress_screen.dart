@@ -145,8 +145,9 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
                     ),
                   ),
                 ),
-                // The sheet is drawn by the map, above its controls, so a re-centre
-                // pill docked onto the sheet (no room above it) really is on top.
+                // The sheet is drawn by the map above the screen's nav and status
+                // pill but UNDER the map's re-centre pill, so a pill docked onto
+                // the sheet (no room above it) still sits on top of it.
                 Align(
                   alignment: Alignment.bottomCenter,
                   child: MeasureHeight(

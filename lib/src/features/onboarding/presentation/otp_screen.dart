@@ -32,80 +32,92 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     return Scaffold(
       backgroundColor: Brand.bg,
+      // The primary action ("Verify") is pinned in an McActionBar, which pads
+      // itself by the bottom inset (so no SafeArea there) and rides above the
+      // keyboard. The page scrolls — with the keyboard up the old Spacer column
+      // overflowed — and the error sits with the button.
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const McNavHeader(fallback: '/phone', showMenu: false),
-              const SizedBox(height: 22),
-              const McTitle('Enter the code', size: 26),
-              const SizedBox(height: 10),
-              Text.rich(
-                TextSpan(
-                  text: 'Sent to $phone. ',
-                  style: tw(FontWeight.w600, 15, Brand.sub),
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    WidgetSpan(
-                      child: GestureDetector(
-                        onTap: () => backOr(context, '/phone'),
-                        child: Text('Edit', style: tw(FontWeight.w800, 15, Brand.blue)),
+                    const McNavHeader(fallback: '/phone', showMenu: false),
+                    const SizedBox(height: 22),
+                    const McTitle('Enter the code', size: 26),
+                    const SizedBox(height: 10),
+                    Text.rich(
+                      TextSpan(
+                        text: 'Sent to $phone. ',
+                        style: tw(FontWeight.w600, 15, Brand.sub),
+                        children: [
+                          WidgetSpan(
+                            child: GestureDetector(
+                              onTap: () => backOr(context, '/phone'),
+                              child: Text('Edit', style: tw(FontWeight.w800, 15, Brand.blue)),
+                            ),
+                          ),
+                        ],
                       ),
+                    ),
+                    const SizedBox(height: 28),
+                    OtpInput(
+                      length: 6,
+                      boxHeight: 60,
+                      onCompleted: (code) {
+                        setState(() => _code = code);
+                        _verify();
+                      },
+                    ),
+                    if (AppConfig.showDevOtp && auth.devOtpCode != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFCF3D5),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFEECB5F)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Ico('phone', size: 16, color: Color(0xFFB07310)),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Dev OTP: ${auth.devOtpCode}',
+                              style: tw(FontWeight.w700, 14, const Color(0xFFB07310)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        const Ico('clock', size: 16, color: Brand.faint),
+                        const SizedBox(width: 6),
+                        Text('Resend code in 0:24', style: tw(FontWeight.w700, 14, Brand.sub)),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 28),
-              OtpInput(
-                length: 6,
-                boxHeight: 60,
-                onCompleted: (code) {
-                  setState(() => _code = code);
-                  _verify();
-                },
-              ),
-              if (AppConfig.showDevOtp && auth.devOtpCode != null) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFCF3D5),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFEECB5F)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Ico('phone', size: 16, color: Color(0xFFB07310)),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Dev OTP: ${auth.devOtpCode}',
-                        style: tw(FontWeight.w700, 14, const Color(0xFFB07310)),
-                      ),
-                    ],
-                  ),
+            ),
+            McActionBar(
+              // Errors sit with the button, so they are on screen after tapping it.
+              notice: auth.error == null ? null : McErrorBanner(auth.error!),
+              children: [
+                McButton(
+                  auth.isLoading ? 'Verifying…' : 'Verify',
+                  icon: auth.isLoading ? null : 'check',
+                  onTap: auth.isLoading ? null : _verify,
                 ),
               ],
-              if (auth.error != null) ...[
-                const SizedBox(height: 12),
-                Text(auth.error!, style: tw(FontWeight.w600, 13, Colors.red)),
-              ],
-              const SizedBox(height: 22),
-              Row(
-                children: [
-                  const Ico('clock', size: 16, color: Brand.faint),
-                  const SizedBox(width: 6),
-                  Text('Resend code in 0:24', style: tw(FontWeight.w700, 14, Brand.sub)),
-                ],
-              ),
-              const Spacer(),
-              McButton(
-                auth.isLoading ? 'Verifying…' : 'Verify',
-                icon: auth.isLoading ? null : 'check',
-                onTap: auth.isLoading ? null : _verify,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

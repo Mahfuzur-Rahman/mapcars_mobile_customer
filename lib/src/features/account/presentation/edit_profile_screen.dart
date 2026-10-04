@@ -106,137 +106,139 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
     final token = ref.watch(authTokenProvider);
     return Scaffold(
       backgroundColor: Brand.bg,
+      // The primary action is pinned in an McActionBar: it pads itself by the
+      // bottom inset (so no SafeArea there) and rides above the keyboard. The
+      // error sits with it, so it is on screen after a failed submit. The header
+      // scrolls with the form: a bar grown by an error must not squeeze the
+      // fields into a sliver above it.
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const McNavHeader(title: 'Personal info', fallback: '/account'),
-              const SizedBox(height: 22),
-              Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Center(
-                        child: GestureDetector(
-                          onTap: _uploadingPicture ? null : _pickPicture,
-                          child: SizedBox(
-                            width: 92,
-                            height: 92,
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              children: [
-                                if (_uploadingPicture)
-                                  const SizedBox(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const McNavHeader(title: 'Personal info', fallback: '/account'),
+                    const SizedBox(height: 22),
+                    Center(
+                      child: GestureDetector(
+                        onTap: _uploadingPicture ? null : _pickPicture,
+                        child: SizedBox(
+                          width: 92,
+                          height: 92,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              if (_uploadingPicture)
+                                const SizedBox(
+                                  width: 92,
+                                  height: 92,
+                                  child: Center(child: CircularProgressIndicator()),
+                                )
+                              else if (auth.hasProfilePicture && token != null)
+                                ClipOval(
+                                  child: Image.network(
+                                    ref.read(customerAuthServiceProvider).profilePictureUrl(Env.apiBaseUrl),
+                                    headers: {'Authorization': 'Bearer $token'},
                                     width: 92,
                                     height: 92,
-                                    child: Center(child: CircularProgressIndicator()),
-                                  )
-                                else if (auth.hasProfilePicture && token != null)
-                                  ClipOval(
-                                    child: Image.network(
-                                      ref.read(customerAuthServiceProvider).profilePictureUrl(Env.apiBaseUrl),
-                                      headers: {'Authorization': 'Bearer $token'},
-                                      width: 92,
-                                      height: 92,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stack) => const McAvatar(size: 92),
-                                    ),
-                                  )
-                                else
-                                  const McAvatar(size: 92),
-                                Positioned(
-                                  bottom: 0,
-                                  right: 0,
-                                  child: Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: BoxDecoration(
-                                      color: Brand.blue,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(color: Colors.white, width: 3),
-                                    ),
-                                    child: const Center(
-                                      child: Ico('camera', size: 14, color: Colors.white),
-                                    ),
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stack) => const McAvatar(size: 92),
+                                  ),
+                                )
+                              else
+                                const McAvatar(size: 92),
+                              Positioned(
+                                bottom: 0,
+                                right: 0,
+                                child: Container(
+                                  width: 30,
+                                  height: 30,
+                                  decoration: BoxDecoration(
+                                    color: Brand.blue,
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 3),
+                                  ),
+                                  child: const Center(
+                                    child: Ico('camera', size: 14, color: Colors.white),
                                   ),
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
-                      const SizedBox(height: 22),
-                      McField(
-                        icon: 'user',
-                        placeholder: 'Your full name',
-                        controller: _nameCtrl,
-                        editable: true,
-                      ),
-                      const SizedBox(height: 12),
-                      McField(
-                        icon: 'msg',
-                        placeholder: 'Email (optional)',
-                        controller: _emailCtrl,
-                        editable: true,
-                        keyboardType: TextInputType.emailAddress,
-                      ),
-                      const SizedBox(height: 22),
-                      Text('EMERGENCY CONTACT',
-                          style: tw(FontWeight.w800, 12, Brand.sub, 0.5)),
-                      const SizedBox(height: 10),
-                      McField(
-                        icon: 'alert',
-                        placeholder: "Contact's name (optional)",
-                        controller: _emergencyNameCtrl,
-                        editable: true,
-                      ),
-                      const SizedBox(height: 12),
-                      McField(
-                        icon: 'phone',
-                        placeholder: "Contact's phone (optional)",
-                        controller: _emergencyPhoneCtrl,
-                        editable: true,
-                        keyboardType: TextInputType.phone,
-                      ),
-                      const SizedBox(height: 22),
-                      Text('ACCESSIBILITY',
-                          style: tw(FontWeight.w800, 12, Brand.sub, 0.5)),
-                      const SizedBox(height: 10),
-                      McField(
-                        icon: 'access',
-                        placeholder: 'Accessibility needs (optional)',
-                        controller: _accessibilityCtrl,
-                        editable: true,
-                      ),
-                      const SizedBox(height: 12),
-                      McToggleField(
-                        icon: 'bell',
-                        label: 'Send me offers & updates',
-                        value: _marketingConsent,
-                        onChanged: (v) => setState(() => _marketingConsent = v),
-                      ),
-                      if (_formError != null) ...[
-                        const SizedBox(height: 12),
-                        Text(_formError!, style: tw(FontWeight.w600, 13, Colors.red)),
-                      ] else if (auth.error != null) ...[
-                        const SizedBox(height: 12),
-                        Text(auth.error!, style: tw(FontWeight.w600, 13, Colors.red)),
-                      ],
-                    ],
-                  ),
+                    ),
+                    const SizedBox(height: 22),
+                    McField(
+                      icon: 'user',
+                      placeholder: 'Your full name',
+                      controller: _nameCtrl,
+                      editable: true,
+                    ),
+                    const SizedBox(height: 12),
+                    McField(
+                      icon: 'msg',
+                      placeholder: 'Email (optional)',
+                      controller: _emailCtrl,
+                      editable: true,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 22),
+                    Text('EMERGENCY CONTACT',
+                        style: tw(FontWeight.w800, 12, Brand.sub, 0.5)),
+                    const SizedBox(height: 10),
+                    McField(
+                      icon: 'alert',
+                      placeholder: "Contact's name (optional)",
+                      controller: _emergencyNameCtrl,
+                      editable: true,
+                    ),
+                    const SizedBox(height: 12),
+                    McField(
+                      icon: 'phone',
+                      placeholder: "Contact's phone (optional)",
+                      controller: _emergencyPhoneCtrl,
+                      editable: true,
+                      keyboardType: TextInputType.phone,
+                    ),
+                    const SizedBox(height: 22),
+                    Text('ACCESSIBILITY',
+                        style: tw(FontWeight.w800, 12, Brand.sub, 0.5)),
+                    const SizedBox(height: 10),
+                    McField(
+                      icon: 'access',
+                      placeholder: 'Accessibility needs (optional)',
+                      controller: _accessibilityCtrl,
+                      editable: true,
+                    ),
+                    const SizedBox(height: 12),
+                    McToggleField(
+                      icon: 'bell',
+                      label: 'Send me offers & updates',
+                      value: _marketingConsent,
+                      onChanged: (v) => setState(() => _marketingConsent = v),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
-              McButton(
-                auth.isLoading ? 'Saving…' : 'Save changes',
-                icon: auth.isLoading ? null : 'check',
-                onTap: auth.isLoading ? null : _save,
-              ),
-            ],
-          ),
+            ),
+            McActionBar(
+              notice: _formError != null
+                  ? McErrorBanner(_formError!)
+                  : (auth.error != null ? McErrorBanner(auth.error!) : null),
+              children: [
+                McButton(
+                  auth.isLoading ? 'Saving…' : 'Save changes',
+                  icon: auth.isLoading ? null : 'check',
+                  onTap: auth.isLoading ? null : _save,
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

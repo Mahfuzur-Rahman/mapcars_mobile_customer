@@ -63,99 +63,109 @@ class _RateScreenState extends ConsumerState<RateScreen> {
 
     return Scaffold(
       backgroundColor: Brand.bg,
+      // "Submit rating" is pinned in an McActionBar: inset-aware, and it rides
+      // above the keyboard, so the comment field and the button are both on
+      // screen while typing. A failed submit's error sits with the button.
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 40, 20, 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const McNavHeader(showBack: false),
-              const SizedBox(height: 14),
-              const McTitle('Rate your driver', size: 23, align: TextAlign.center),
-              const SizedBox(height: 18),
-              // The driver as recorded on the trip. Nothing invented: a trip
-              // with no driver details shows none.
-              Column(
-                children: [
-                  const McAvatar(size: 76, color: Brand.blue),
-                  if (driver != null) ...[
-                    const SizedBox(height: 6),
-                    Text(driver.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: tw(FontWeight.w900, 17)),
-                    if (driver.vehicle.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(driver.vehicle,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: tw(FontWeight.w600, 13, Brand.sub)),
-                    ],
-                  ],
-                ],
-              ),
-              const SizedBox(height: 18),
-              // Stars.
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  for (int i = 1; i <= 5; i++) ...[
-                    GestureDetector(
-                      onTap: () => setState(() => _rating = i),
-                      child: Ico(
-                        i <= _rating ? 'starF' : 'star',
-                        size: 38,
-                        color: i <= _rating ? Brand.star : Brand.line,
-                      ),
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 40, 20, 18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const McNavHeader(showBack: false),
+                    const SizedBox(height: 14),
+                    const McTitle('Rate your driver', size: 23, align: TextAlign.center),
+                    const SizedBox(height: 18),
+                    // The driver as recorded on the trip. Nothing invented: a trip
+                    // with no driver details shows none.
+                    Column(
+                      children: [
+                        const McAvatar(size: 76, color: Brand.blue),
+                        if (driver != null) ...[
+                          const SizedBox(height: 6),
+                          Text(driver.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: tw(FontWeight.w900, 17)),
+                          if (driver.vehicle.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(driver.vehicle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tw(FontWeight.w600, 13, Brand.sub)),
+                          ],
+                        ],
+                      ],
                     ),
-                    if (i != 5) const SizedBox(width: 10),
-                  ],
-                ],
-              ),
-              const SizedBox(height: 20),
-              // The tip the customer actually added when booking, read-only. What
-              // stood here was a £1/£2/£5 selector that charged nothing and
-              // sent nothing — the tip goes on the booking, and the rating
-              // endpoint takes only a score and a comment.
-              if (tip != null) ...[
-                McCard(
-                  padding: 16,
-                  child: Row(
-                    children: [
-                      const Ico('gift', size: 20, color: Brand.green),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          driver == null
-                              ? 'You added a $tip tip — 100% goes to your driver'
-                              : 'You added a $tip tip — 100% goes to ${driver.name}',
-                          style: tw(FontWeight.w700, 13, Brand.sub),
+                    const SizedBox(height: 18),
+                    // Stars.
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        for (int i = 1; i <= 5; i++) ...[
+                          GestureDetector(
+                            onTap: () => setState(() => _rating = i),
+                            child: Ico(
+                              i <= _rating ? 'starF' : 'star',
+                              size: 38,
+                              color: i <= _rating ? Brand.star : Brand.line,
+                            ),
+                          ),
+                          if (i != 5) const SizedBox(width: 10),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 20),
+                    // The tip the customer actually added when booking, read-only. What
+                    // stood here was a £1/£2/£5 selector that charged nothing and
+                    // sent nothing — the tip goes on the booking, and the rating
+                    // endpoint takes only a score and a comment.
+                    if (tip != null) ...[
+                      McCard(
+                        padding: 16,
+                        child: Row(
+                          children: [
+                            const Ico('gift', size: 20, color: Brand.green),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                driver == null
+                                    ? 'You added a $tip tip — 100% goes to your driver'
+                                    : 'You added a $tip tip — 100% goes to ${driver.name}',
+                                style: tw(FontWeight.w700, 13, Brand.sub),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      const SizedBox(height: 14),
                     ],
-                  ),
+                    McField(
+                      icon: 'edit',
+                      placeholder: 'Leave a compliment…',
+                      editable: true,
+                      controller: _commentController,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 14),
-              ],
-              McField(
-                icon: 'edit',
-                placeholder: 'Leave a compliment…',
-                editable: true,
-                controller: _commentController,
               ),
-              if (_error != null) ...[
-                const SizedBox(height: 12),
-                Text(_error!, style: tw(FontWeight.w600, 13, Colors.red)),
+            ),
+            McActionBar(
+              notice: _error == null ? null : McErrorBanner(_error!),
+              children: [
+                McButton(
+                  _submitting ? 'Submitting…' : 'Submit rating',
+                  icon: 'check',
+                  kind: BtnKind.green,
+                  onTap: (_submitting || _rating == 0) ? null : _submit,
+                ),
               ],
-              const SizedBox(height: 18),
-              McButton(
-                _submitting ? 'Submitting…' : 'Submit rating',
-                icon: 'check',
-                kind: BtnKind.green,
-                onTap: (_submitting || _rating == 0) ? null : _submit,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

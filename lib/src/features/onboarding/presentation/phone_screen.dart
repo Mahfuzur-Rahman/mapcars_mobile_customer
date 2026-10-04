@@ -97,178 +97,196 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
 
     return Scaffold(
       backgroundColor: Brand.bg,
+      // The primary action ("Continue" / "Sign in") is pinned in an McActionBar,
+      // which pads itself by the bottom inset (so no SafeArea there) and rides
+      // above the keyboard — the autofocused field used to raise the keyboard
+      // over it. Apple, Google and "Sign up" are alternatives, so they stay in
+      // the scrolling page.
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const McNavHeader(fallback: '/intro', showMenu: false),
-              const SizedBox(height: 18),
-
-              // Segmented tab switch for Phone / Email
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: Brand.line.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(22, 12, 22, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: _TabButton(
-                        label: 'Phone number',
-                        icon: 'phone',
-                        active: isPhone,
-                        onTap: () {
-                          setState(() {
-                            _tab = AuthTab.phone;
-                            _localError = null;
-                          });
-                        },
+                    const McNavHeader(fallback: '/intro', showMenu: false),
+                    const SizedBox(height: 18),
+
+                    // Segmented tab switch for Phone / Email
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Brand.line.withValues(alpha: 0.35),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      // A guard, not a fix for a seen bug: today both labels stay on one
+                      // line (they ellipsize), so the tabs match anyway. If a label ever
+                      // wraps at extreme text sizes, both tabs still take the taller height.
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: _TabButton(
+                                label: 'Phone number',
+                                icon: 'phone',
+                                active: isPhone,
+                                onTap: () {
+                                  setState(() {
+                                    _tab = AuthTab.phone;
+                                    _localError = null;
+                                  });
+                                },
+                              ),
+                            ),
+                            Expanded(
+                              child: _TabButton(
+                                label: 'Email & password',
+                                icon: 'mail',
+                                active: !isPhone,
+                                onTap: () {
+                                  setState(() {
+                                    _tab = AuthTab.email;
+                                    _localError = null;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    Expanded(
-                      child: _TabButton(
-                        label: 'Email & password',
+                    const SizedBox(height: 22),
+
+                    McTitle(
+                      isPhone ? "What's your number?" : "Log in with email",
+                      size: 26,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isPhone
+                          ? "We'll text a code to verify your phone. Standard rates apply."
+                          : "Enter your registered email and password to sign in.",
+                      style: tw(FontWeight.w600, 15, Brand.sub),
+                    ),
+                    const SizedBox(height: 22),
+
+                    if (isPhone) ...[
+                      Row(
+                        children: [
+                          const McField(value: '🇬🇧 +44', width: 104),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: McField(
+                              controller: _phoneCtrl,
+                              placeholder: '7700 900000',
+                              editable: true,
+                              autofocus: true,
+                              keyboardType: TextInputType.phone,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ] else ...[
+                      McField(
                         icon: 'mail',
-                        active: !isPhone,
-                        onTap: () {
-                          setState(() {
-                            _tab = AuthTab.email;
-                            _localError = null;
-                          });
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 22),
-
-              McTitle(
-                isPhone ? "What's your number?" : "Log in with email",
-                size: 26,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                isPhone
-                    ? "We'll text a code to verify your phone. Standard rates apply."
-                    : "Enter your registered email and password to sign in.",
-                style: tw(FontWeight.w600, 15, Brand.sub),
-              ),
-              const SizedBox(height: 22),
-
-              if (isPhone) ...[
-                Row(
-                  children: [
-                    const McField(value: '🇬🇧 +44', width: 104),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: McField(
-                        controller: _phoneCtrl,
-                        placeholder: '7700 900000',
+                        placeholder: 'Email address',
+                        controller: _emailCtrl,
                         editable: true,
                         autofocus: true,
-                        keyboardType: TextInputType.phone,
+                        keyboardType: TextInputType.emailAddress,
+                      ),
+                      const SizedBox(height: 12),
+                      McField(
+                        icon: 'lock',
+                        placeholder: 'Password',
+                        controller: _passwordCtrl,
+                        editable: true,
+                        obscure: _obscurePassword,
+                        suffix: GestureDetector(
+                          onTap: () =>
+                              setState(() => _obscurePassword = !_obscurePassword),
+                          child: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            size: 20,
+                            color: Brand.sub,
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 24),
+                    const McDividerLabel('or'),
+                    const SizedBox(height: 14),
+                    // iOS only: App Review 4.8 requires it wherever Google sign-in
+                    // is offered, and it isn't wired for Android at all.
+                    if (AppleSignInService.isAvailable) ...[
+                      McAppleButton(
+                        label: 'Continue with Apple',
+                        loading: auth.isLoading,
+                        onTap: auth.isLoading ? null : _continueWithApple,
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    McGoogleButton(
+                      loading: auth.isLoading,
+                      onTap: auth.isLoading ? null : _continueWithGoogle,
+                    ),
+
+                    const SizedBox(height: 20),
+                    const McDividerLabel("Don't have an account?"),
+                    const SizedBox(height: 14),
+                    McButton(
+                      'Sign up',
+                      icon: 'user',
+                      kind: BtnKind.green,
+                      onTap: () => context.go('/email-signup'),
+                    ),
+                    const SizedBox(height: 16),
+                    Text.rich(
+                      TextSpan(
+                        text: 'By continuing you agree to our ',
+                        style: tw(FontWeight.w600, 12, Brand.sub),
+                        children: [
+                          TextSpan(
+                              text: 'Terms',
+                              style: tw(FontWeight.w600, 12, Brand.blue)),
+                          TextSpan(
+                              text: ' & ', style: tw(FontWeight.w600, 12, Brand.sub)),
+                          TextSpan(
+                              text: 'Privacy Policy',
+                              style: tw(FontWeight.w600, 12, Brand.blue)),
+                          TextSpan(
+                              text: '.', style: tw(FontWeight.w600, 12, Brand.sub)),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ] else ...[
-                McField(
-                  icon: 'mail',
-                  placeholder: 'Email address',
-                  controller: _emailCtrl,
-                  editable: true,
-                  autofocus: true,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                const SizedBox(height: 12),
-                McField(
-                  icon: 'lock',
-                  placeholder: 'Password',
-                  controller: _passwordCtrl,
-                  editable: true,
-                  obscure: _obscurePassword,
-                  suffix: GestureDetector(
-                    onTap: () =>
-                        setState(() => _obscurePassword = !_obscurePassword),
-                    child: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      size: 20,
-                      color: Brand.sub,
-                    ),
-                  ),
+              ),
+            ),
+            McActionBar(
+              // Validation / API errors sit with the button, so they are on
+              // screen after tapping it, keyboard up or not.
+              notice: error == null ? null : McErrorBanner(error),
+              children: [
+                McButton(
+                  auth.isLoading
+                      ? (isPhone ? 'Sending…' : 'Signing in…')
+                      : (isPhone ? 'Continue' : 'Sign in'),
+                  icon: auth.isLoading ? null : 'chevR',
+                  onTap: auth.isLoading
+                      ? null
+                      : (isPhone ? _continuePhone : _submitEmail),
                 ),
               ],
-
-              if (error != null) ...[
-                const SizedBox(height: 14),
-                McErrorBanner(error),
-              ],
-
-              const SizedBox(height: 24),
-              McButton(
-                auth.isLoading
-                    ? (isPhone ? 'Sending…' : 'Signing in…')
-                    : (isPhone ? 'Continue' : 'Sign in'),
-                icon: auth.isLoading ? null : 'chevR',
-                onTap: auth.isLoading
-                    ? null
-                    : (isPhone ? _continuePhone : _submitEmail),
-              ),
-
-              const SizedBox(height: 18),
-              const McDividerLabel('or'),
-              const SizedBox(height: 14),
-              // iOS only: App Review 4.8 requires it wherever Google sign-in
-              // is offered, and it isn't wired for Android at all.
-              if (AppleSignInService.isAvailable) ...[
-                McAppleButton(
-                  label: 'Continue with Apple',
-                  loading: auth.isLoading,
-                  onTap: auth.isLoading ? null : _continueWithApple,
-                ),
-                const SizedBox(height: 12),
-              ],
-              McGoogleButton(
-                loading: auth.isLoading,
-                onTap: auth.isLoading ? null : _continueWithGoogle,
-              ),
-
-              const SizedBox(height: 20),
-              const McDividerLabel("Don't have an account?"),
-              const SizedBox(height: 14),
-              McButton(
-                'Sign up',
-                icon: 'user',
-                kind: BtnKind.green,
-                onTap: () => context.go('/email-signup'),
-              ),
-              const SizedBox(height: 16),
-              Text.rich(
-                TextSpan(
-                  text: 'By continuing you agree to our ',
-                  style: tw(FontWeight.w600, 12, Brand.sub),
-                  children: [
-                    TextSpan(
-                        text: 'Terms',
-                        style: tw(FontWeight.w600, 12, Brand.blue)),
-                    TextSpan(
-                        text: ' & ', style: tw(FontWeight.w600, 12, Brand.sub)),
-                    TextSpan(
-                        text: 'Privacy Policy',
-                        style: tw(FontWeight.w600, 12, Brand.blue)),
-                    TextSpan(
-                        text: '.', style: tw(FontWeight.w600, 12, Brand.sub)),
-                  ],
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

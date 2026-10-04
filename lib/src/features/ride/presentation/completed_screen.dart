@@ -26,111 +26,124 @@ class CompletedScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Brand.bg,
+      // "Rate your trip" is the screen's job, so it is pinned in an McActionBar
+      // (inset-aware, always on screen); the fare card, Receipt and Get help
+      // scroll above it.
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 40, 20, 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // End of the trip — nothing to go back to, but Home and the menu
-              // stay reachable.
-              const McNavHeader(showBack: false),
-              const SizedBox(height: 18),
-              // Success header.
-              Column(
-                children: [
-                  Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      gradient: Brand.gradGreen,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(color: Color(0x5F31A424), blurRadius: 20, offset: Offset(0, 8)),
-                      ],
-                    ),
-                    child: const Center(child: Ico('check', size: 34, color: Colors.white)),
-                  ),
-                  const SizedBox(height: 10),
-                  const McTitle("You've arrived", size: 23, align: TextAlign.center),
-                  const SizedBox(height: 6),
-                  Text(
-                      driverName == null
-                          ? 'Hope you enjoyed your ride'
-                          : 'Hope you enjoyed the ride with $driverName',
-                      textAlign: TextAlign.center,
-                      style: tw(FontWeight.w600, 13.5, Brand.sub)),
-                ],
-              ),
-              const SizedBox(height: 18),
-              // Fare summary card.
-              McCard(
-                padding: 16,
+        bottom: false,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 40, 20, 18),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Only what the trip actually carries. The old fallback
-                    // invented an "Economy fare £8.90 / Promo SAVE10 −£0.89 /
-                    // Booking fee" breakdown and an £8.01 total.
-                    _FareRow(
-                        '${trip.tierLabel.isEmpty ? 'Trip' : trip.tierLabel} fare',
-                        fare ?? '—'),
-                    if (tip != null) _FareRow('Tip', tip),
-                    Container(height: 1, color: Brand.fill, margin: const EdgeInsets.symmetric(vertical: 8)),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    // End of the trip — nothing to go back to, but Home and the menu
+                    // stay reachable.
+                    const McNavHeader(showBack: false),
+                    const SizedBox(height: 18),
+                    // Success header.
+                    Column(
                       children: [
-                        Text('Total paid', style: tw(FontWeight.w900, 16)),
-                        Text(total ?? '—', style: tw(FontWeight.w900, 20)),
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: const BoxDecoration(
+                            gradient: Brand.gradGreen,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(color: Color(0x5F31A424), blurRadius: 20, offset: Offset(0, 8)),
+                            ],
+                          ),
+                          child: const Center(child: Ico('check', size: 34, color: Colors.white)),
+                        ),
+                        const SizedBox(height: 10),
+                        const McTitle("You've arrived", size: 23, align: TextAlign.center),
+                        const SizedBox(height: 6),
+                        Text(
+                            driverName == null
+                                ? 'Hope you enjoyed your ride'
+                                : 'Hope you enjoyed the ride with $driverName',
+                            textAlign: TextAlign.center,
+                            style: tw(FontWeight.w600, 13.5, Brand.sub)),
                       ],
                     ),
-                    Container(
-                      margin: const EdgeInsets.only(top: 12),
-                      padding: const EdgeInsets.only(top: 12),
-                      decoration: const BoxDecoration(
-                        border: Border(top: BorderSide(color: Brand.fill)),
-                      ),
-                      child: Row(
+                    const SizedBox(height: 18),
+                    // Fare summary card.
+                    McCard(
+                      padding: 16,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Ico(payIcon, size: 18, color: Brand.sub),
-                          const SizedBox(width: 8),
-                          Text(payLabel, style: tw(FontWeight.w700, 13, Brand.sub)),
-                          const Spacer(),
-                          Text(payNote,
-                              style: tw(FontWeight.w800, 12,
-                                  trip.isPaid ? Brand.green : Brand.sub)),
+                          // Only what the trip actually carries. The old fallback
+                          // invented an "Economy fare £8.90 / Promo SAVE10 −£0.89 /
+                          // Booking fee" breakdown and an £8.01 total.
+                          _FareRow(
+                              '${trip.tierLabel.isEmpty ? 'Trip' : trip.tierLabel} fare',
+                              fare ?? '—'),
+                          if (tip != null) _FareRow('Tip', tip),
+                          Container(height: 1, color: Brand.fill, margin: const EdgeInsets.symmetric(vertical: 8)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Total paid', style: tw(FontWeight.w900, 16)),
+                              Text(total ?? '—', style: tw(FontWeight.w900, 20)),
+                            ],
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(top: 12),
+                            padding: const EdgeInsets.only(top: 12),
+                            decoration: const BoxDecoration(
+                              border: Border(top: BorderSide(color: Brand.fill)),
+                            ),
+                            child: Row(
+                              children: [
+                                Ico(payIcon, size: 18, color: Brand.sub),
+                                const SizedBox(width: 8),
+                                Text(payLabel, style: tw(FontWeight.w700, 13, Brand.sub)),
+                                const Spacer(),
+                                Text(payNote,
+                                    style: tw(FontWeight.w800, 12,
+                                        trip.isPaid ? Brand.green : Brand.sub)),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: McGhostButton(
+                            'Receipt',
+                            icon: 'receipt',
+                            height: 48,
+                            onTap: () => context.push('/receipt', extra: trip),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: McGhostButton(
+                            'Get help',
+                            icon: 'msg',
+                            height: 48,
+                            onTap: () => showHelpSupportSheet(context),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: McGhostButton(
-                      'Receipt',
-                      icon: 'receipt',
-                      height: 48,
-                      onTap: () => context.push('/receipt', extra: trip),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: McGhostButton(
-                      'Get help',
-                      icon: 'msg',
-                      height: 48,
-                      onTap: () => showHelpSupportSheet(context),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              McButton('Rate your trip', icon: 'star', onTap: () => context.go('/rate')),
-            ],
-          ),
+            ),
+            McActionBar(
+              children: [
+                McButton('Rate your trip', icon: 'star', onTap: () => context.go('/rate')),
+              ],
+            ),
+          ],
         ),
       ),
     );

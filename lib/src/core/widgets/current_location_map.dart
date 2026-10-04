@@ -278,13 +278,20 @@ class _LocationError extends StatelessWidget {
             // message and the button are what the customer needs. Measured, not
             // guessed, so a short message on a roomy screen keeps its icon.
             final scaler = MediaQuery.textScalerOf(context);
-            final messageHeight = (TextPainter(
-              text: TextSpan(text: message, style: _messageStyle),
+            // Measured with the style the Text really gets (Nunito, line
+            // height, letter spacing come from the theme's default style).
+            final painter = TextPainter(
+              text: TextSpan(
+                text: message,
+                style: DefaultTextStyle.of(context).style.merge(_messageStyle),
+              ),
               textDirection: TextDirection.ltr,
               textScaler: scaler,
-            )..layout(maxWidth: box.maxWidth))
-                .height;
-            final buttonHeight = math.max(40.0, scaler.scale(14) * 1.25 + 26);
+            )..layout(maxWidth: box.maxWidth);
+            final messageHeight = painter.height;
+            painter.dispose();
+            // FilledButton's 48dp minimum tap target.
+            const buttonHeight = 48.0;
             final withIcon = 42 + 14 + messageHeight + 18 + buttonHeight;
             final showIcon = withIcon <= box.maxHeight;
 

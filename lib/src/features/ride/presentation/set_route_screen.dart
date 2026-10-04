@@ -186,6 +186,11 @@ class _SetRouteScreenState extends ConsumerState<SetRouteScreen> {
     );
   }
 
+  /// The lists run under the system bar (this page has no SafeArea: the header
+  /// pads its own top), so the last row needs the bottom inset on top of its
+  /// usual 18dp to scroll fully clear of it. With the keyboard up the inset is 0.
+  double get _listBottomPadding => 18 + MediaQuery.paddingOf(context).bottom;
+
   Widget _buildResults() {
     if (_resolving || _loading) {
       return const Center(
@@ -227,7 +232,7 @@ class _SetRouteScreenState extends ConsumerState<SetRouteScreen> {
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+      padding: EdgeInsets.fromLTRB(18, 4, 18, _listBottomPadding),
       itemCount: _results.length + 1,
       itemBuilder: (context, i) {
         if (i == 0) {
@@ -249,7 +254,7 @@ class _SetRouteScreenState extends ConsumerState<SetRouteScreen> {
   Widget _buildRecents() {
     final recents = ref.watch(searchHistoryProvider);
     return ListView(
-      padding: const EdgeInsets.fromLTRB(18, 4, 18, 18),
+      padding: EdgeInsets.fromLTRB(18, 4, 18, _listBottomPadding),
       children: [
         _SetOnMapRow(
           onTap: () => context.push('/pick-on-map', extra: _origin),
