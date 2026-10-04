@@ -44,14 +44,15 @@ class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
           Align(
             alignment: Alignment.bottomCenter,
             child: McSheet(
-              // Sized so the whole tier list is visible without scrolling.
-              // McSheet spends 40 on padding and 19 on its handle, leaving 387
-              // for content; the compact layout needs ~366 for the live 4-tier
-              // chart (title 26 + gap 3 + summary 17 + gap 12 + button 54 +
-              // gap 12 + 4 rows at 56 + 3 gaps at 6). A fifth tier would need
-              // ~62 more than that fits, so it would start scrolling again —
-              // the scroll view below is kept for exactly that case.
-              height: 446,
+              // A cap, not a size: the sheet fits its content up to here, so
+              // the route stays in view above it. McSheet spends
+              // 12 + max(28, 12 + bottom inset) on padding and 19 on its
+              // handle — with no inset that leaves 387 for content, and the
+              // compact layout needs ~366 for the live 4-tier chart (title 26
+              // + gap 3 + summary 17 + gap 12 + button 54 + gap 12 + 4 rows at
+              // 56 + 3 gaps at 6). A fifth tier, larger text or a nav-bar
+              // inset makes the list scroll inside the sheet instead.
+              maxHeight: 446,
               child: quote.when(
                 loading: () => const Center(
                   child: Padding(
@@ -115,37 +116,35 @@ class _RideList extends StatelessWidget {
     // reach; here it never moves as the selection changes.
     //
     // The rows are sized so the whole set is visible at once — see _RideRow.
-    // The scroll view stays as a safety net for a very small screen or a fare
-    // chart with more tiers than today's, but in the normal case it never
+    // McSheet scrolls the list as a safety net for a very small screen or a
+    // fare chart with more tiers than today's, but in the normal case it never
     // scrolls.
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const McTitle('Choose a ride', size: 19),
-          const SizedBox(height: 3),
-          Text(quote.summary, style: tw(FontWeight.w600, 12.5, Brand.sub)),
-          const SizedBox(height: 12),
-          McButton(
-            'Choose ${sel.name} · ${sel.formattedPrice}',
-            icon: 'bolt',
-            onTap: () => onConfirm(sel),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const McTitle('Choose a ride', size: 19),
+        const SizedBox(height: 3),
+        Text(quote.summary, style: tw(FontWeight.w600, 12.5, Brand.sub)),
+        const SizedBox(height: 12),
+        McButton(
+          'Choose ${sel.name} · ${sel.formattedPrice}',
+          icon: 'bolt',
+          onTap: () => onConfirm(sel),
+        ),
+        const SizedBox(height: 12),
+        for (int i = 0; i < options.length; i++) ...[
+          _RideRow(
+            ride: options[i],
+            selected: i == selected,
+            onTap: () => onSelect(i),
           ),
-          const SizedBox(height: 12),
-          for (int i = 0; i < options.length; i++) ...[
-            _RideRow(
-              ride: options[i],
-              selected: i == selected,
-              onTap: () => onSelect(i),
-            ),
-            if (i < options.length - 1) const SizedBox(height: 6),
-          ],
-          // The payment method and any promo are chosen on the confirm screen,
-          // against the real booking. What sat here was a fixed "•••• 4242"
-          // card and a promo link that did nothing.
+          if (i < options.length - 1) const SizedBox(height: 6),
         ],
-      ),
+        // The payment method and any promo are chosen on the confirm screen,
+        // against the real booking. What sat here was a fixed "•••• 4242"
+        // card and a promo link that did nothing.
+      ],
     );
   }
 }

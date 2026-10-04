@@ -130,111 +130,109 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
           Align(
             alignment: Alignment.bottomCenter,
             child: McSheet(
-              height: 360,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Destination row.
-                    Row(
-                      children: [
-                        Container(
-                          width: 11,
-                          height: 11,
-                          decoration: BoxDecoration(
-                            color: Brand.blue,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
+              maxHeight: 360,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Destination row.
+                  Row(
+                    children: [
+                      Container(
+                        width: 11,
+                        height: 11,
+                        decoration: BoxDecoration(
+                          color: Brand.blue,
+                          borderRadius: BorderRadius.circular(3),
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(trip.dropoff.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tw(FontWeight.w900, 15)),
+                            Text('Destination', style: tw(FontWeight.w600, 12, Brand.sub)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      // Real progress along the route, not a painted 62%.
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: SizedBox(
+                          width: 90,
+                          height: 6,
+                          child: Stack(
                             children: [
-                              Text(trip.dropoff.label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tw(FontWeight.w900, 15)),
-                              Text('Destination', style: tw(FontWeight.w600, 12, Brand.sub)),
+                              Container(color: Brand.fill),
+                              FractionallySizedBox(
+                                widthFactor: eta?.fraction ?? 0.0,
+                                child: Container(
+                                  decoration: const BoxDecoration(gradient: Brand.grad),
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 10),
-                        // Real progress along the route, not a painted 62%.
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(99),
-                          child: SizedBox(
-                            width: 90,
-                            height: 6,
-                            child: Stack(
-                              children: [
-                                Container(color: Brand.fill),
-                                FractionallySizedBox(
-                                  widthFactor: eta?.fraction ?? 0.0,
-                                  child: Container(
-                                    decoration: const BoxDecoration(gradient: Brand.grad),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    DriverCard(driver: trip.driver),
-                    const SizedBox(height: 12),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: McGhostButton(
-                            'Safety',
-                            icon: 'shield',
-                            onTap: () => showTripSafetySheet(
-                              context,
-                              ref,
-                              trip,
-                              driverPosition: driverPosition,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: McGhostButton(
-                            'Share trip',
-                            icon: 'nav',
-                            onTap: () => shareTrip(
-                              trip,
-                              driverPosition: driverPosition,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    // Chat existed but was reachable only while waiting for the
-                    // driver — the customer lost it the moment they got in the car,
-                    // which is when "I left my bag on the seat" happens.
-                    McBadge(
-                      count: unread,
-                      child: McGhostButton(
-                        'Message driver',
-                        icon: 'msg',
-                        semanticLabel: unread == 0
-                            ? 'Message driver'
-                            : 'Message driver, $unread unread',
-                        onTap: () => context.push('/chat'),
                       ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  DriverCard(driver: trip.driver),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: McGhostButton(
+                          'Safety',
+                          icon: 'shield',
+                          onTap: () => showTripSafetySheet(
+                            context,
+                            ref,
+                            trip,
+                            driverPosition: driverPosition,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: McGhostButton(
+                          'Share trip',
+                          icon: 'nav',
+                          onTap: () => shareTrip(
+                            trip,
+                            driverPosition: driverPosition,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Chat existed but was reachable only while waiting for the
+                  // driver — the customer lost it the moment they got in the car,
+                  // which is when "I left my bag on the seat" happens.
+                  McBadge(
+                    count: unread,
+                    child: McGhostButton(
+                      'Message driver',
+                      icon: 'msg',
+                      semanticLabel: unread == 0
+                          ? 'Message driver'
+                          : 'Message driver, $unread unread',
+                      onTap: () => context.push('/chat'),
                     ),
-                    const SizedBox(height: 10),
-                    McGhostButton(
-                      'Cancel ride',
-                      icon: 'x',
-                      onTap: () => confirmCancelRide(context, ref),
-                    ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 10),
+                  McGhostButton(
+                    'Cancel ride',
+                    icon: 'x',
+                    onTap: () => confirmCancelRide(context, ref),
+                  ),
+                ],
               ),
             ),
           ),

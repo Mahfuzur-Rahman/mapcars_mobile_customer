@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/utils/date_format.dart';
 import '../../../core/widgets/mc.dart';
+import '../../../core/widgets/mc_tab_bar.dart';
 import '../../ride/models/trip.dart';
 import '../../ride/models/trip_status.dart';
 import '../../ride/services/ride_service.dart';
@@ -19,7 +20,7 @@ class HistoryScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Brand.bg,
-      bottomNavigationBar: const _CustomerTabBar(active: 'activity'),
+      bottomNavigationBar: const McTabBar(active: 'activity'),
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -179,49 +180,6 @@ class _Message extends StatelessWidget {
             ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _CustomerTabBar extends StatelessWidget {
-  const _CustomerTabBar({required this.active});
-  final String active;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('home', 'Home', () => context.go('/home')),
-      ('receipt', 'Activity', () => context.go('/activity')),
-      ('user', 'Account', () => context.go('/account')),
-    ];
-    return Container(
-      height: 84,
-      decoration: const BoxDecoration(
-        color: Brand.paper,
-        border: Border(top: BorderSide(color: Brand.fill)),
-      ),
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Row(
-        children: [
-          for (final (icon, label, onTap) in items)
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onTap,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Ico(icon, size: 24, color: active == label.toLowerCase() ? Brand.blue : Brand.faint),
-                    const SizedBox(height: 3),
-                    Text(label,
-                        style: tw(FontWeight.w800, 11,
-                            active == label.toLowerCase() ? Brand.blue : Brand.faint)),
-                  ],
-                ),
-              ),
-            ),
-        ],
       ),
     );
   }

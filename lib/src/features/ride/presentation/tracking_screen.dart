@@ -203,98 +203,97 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
           Align(
             alignment: Alignment.bottomCenter,
             child: McSheet(
-              child: SingleChildScrollView(
-                controller: _sheetScroll,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Once the driver is at the kerb the PIN is the only thing
-                    // the customer needs, so it moves to the top of the sheet. It
-                    // used to sit below the driver card and the meet-at row,
-                    // i.e. below the fold on a small phone, at exactly the
-                    // moment someone is being asked to read it out.
-                    if (arrived && trip.pin != null) ...[
-                      _PinCard(pin: trip.pin!, arrived: true),
-                      const SizedBox(height: 12),
-                    ],
-                    DriverCard(
-                      driver: trip.driver,
-                      actions: Row(
-                        children: [
-                          Expanded(
-                            child: _MiniButton(
-                              icon: 'phone',
-                              label: 'Call',
-                              onTap: () =>
-                                  _makeCall(context, trip.driver?.phone),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: McBadge(
-                              count: unread,
-                              child: _MiniButton(
-                                icon: 'msg',
-                                label: 'Message',
-                                semanticLabel: unread == 0
-                                    ? 'Message'
-                                    : 'Message, $unread unread',
-                                onTap: () => context.push('/chat'),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: _MiniButton(
-                              icon: 'shield',
-                              label: 'Safety',
-                              onTap: () => showTripSafetySheet(
-                                context,
-                                ref,
-                                trip,
-                                driverPosition: driverPosition,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(4, 14, 4, 12),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: const BoxDecoration(color: Brand.green, shape: BoxShape.circle),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              'Meet at ${trip.pickup.label}',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: tw(FontWeight.w700, 13),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // The driver keys this in before setting off, so it has to
-                    // be readable at arm's length in a car window — not a 12pt
-                    // aside. Hidden when the trip predates PINs.
-                    if (trip.pin case final pin? when !arrived) ...[
-                      _PinCard(pin: pin, arrived: false),
-                      const SizedBox(height: 12),
-                    ],
-                    McGhostButton(
-                      'Cancel ride',
-                      icon: 'x',
-                      onTap: () => confirmCancelRide(context, ref),
-                    ),
+              // Kept so the PIN can be scrolled back into view on arrival.
+              scrollController: _sheetScroll,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Once the driver is at the kerb the PIN is the only thing
+                  // the customer needs, so it moves to the top of the sheet. It
+                  // used to sit below the driver card and the meet-at row,
+                  // i.e. below the fold on a small phone, at exactly the
+                  // moment someone is being asked to read it out.
+                  if (arrived && trip.pin != null) ...[
+                    _PinCard(pin: trip.pin!, arrived: true),
+                    const SizedBox(height: 12),
                   ],
-                ),
+                  DriverCard(
+                    driver: trip.driver,
+                    actions: Row(
+                      children: [
+                        Expanded(
+                          child: _MiniButton(
+                            icon: 'phone',
+                            label: 'Call',
+                            onTap: () =>
+                                _makeCall(context, trip.driver?.phone),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: McBadge(
+                            count: unread,
+                            child: _MiniButton(
+                              icon: 'msg',
+                              label: 'Message',
+                              semanticLabel: unread == 0
+                                  ? 'Message'
+                                  : 'Message, $unread unread',
+                              onTap: () => context.push('/chat'),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _MiniButton(
+                            icon: 'shield',
+                            label: 'Safety',
+                            onTap: () => showTripSafetySheet(
+                              context,
+                              ref,
+                              trip,
+                              driverPosition: driverPosition,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(4, 14, 4, 12),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: const BoxDecoration(color: Brand.green, shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Meet at ${trip.pickup.label}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: tw(FontWeight.w700, 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // The driver keys this in before setting off, so it has to
+                  // be readable at arm's length in a car window — not a 12pt
+                  // aside. Hidden when the trip predates PINs.
+                  if (trip.pin case final pin? when !arrived) ...[
+                    _PinCard(pin: pin, arrived: false),
+                    const SizedBox(height: 12),
+                  ],
+                  McGhostButton(
+                    'Cancel ride',
+                    icon: 'x',
+                    onTap: () => confirmCancelRide(context, ref),
+                  ),
+                ],
               ),
             ),
           ),

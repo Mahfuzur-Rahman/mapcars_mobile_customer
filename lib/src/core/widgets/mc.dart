@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -473,26 +475,86 @@ class McAvatar extends StatelessWidget {
       );
 }
 
-/// Rounded bottom sheet used on map screens.
+/// Rounded bottom sheet: the panel over every ride-flow map, and the content of
+/// every modal sheet opened with [showMcBottomSheet].
+///
+/// Top to bottom: the handle, [child] — which scrolls when it doesn't fit — and
+/// [footer], which never scrolls. A sheet's primary action belongs in [footer]:
+/// with larger text, a short phone or the keyboard up, the body gives way and
+/// the action stays on screen.
+///
+/// The sheet sizes to its content, capped at [maxHeight] (or 85% of the space
+/// it is given, so some of the map or page always shows above it).
+///
+/// Bottom padding is inset-aware. Both apps target SDK 36, so Android 15+ draws
+/// them edge-to-edge, under the navigation bar (~48dp with 3-button navigation),
+/// and iOS draws under the home indicator (~34dp). Whatever is laid out there is
+/// covered, and its taps go to the system rather than the app. The sheet's
+/// background still runs to the screen edge, but its content stops
+/// `12 + MediaQuery.paddingOf(context).bottom` above it — never less than the
+/// original 28dp, so a device with no inset looks exactly as before.
 class McSheet extends StatelessWidget {
-  const McSheet({super.key, required this.child, this.height});
+  const McSheet({
+    super.key,
+    required this.child,
+    this.footer,
+    this.maxHeight,
+    this.scrollController,
+  });
+
+  /// The sheet's content. Already scrollable — don't wrap it in a scroll view
+  /// of your own.
   final Widget child;
-  final double? height;
+
+  /// Pinned below [child], never scrolled away.
+  final Widget? footer;
+
+  /// The most the sheet may grow to, padding included. Null means 85% of the
+  /// height available to it.
+  final double? maxHeight;
+
+  /// Controls [child]'s scroll view, e.g. to jump back to the top when
+  /// something important appears there.
+  final ScrollController? scrollController;
+
   @override
-  Widget build(BuildContext context) => Container(
-        width: double.infinity,
-        height: height,
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-        decoration: const BoxDecoration(
-          color: Brand.paper,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-          boxShadow: Brand.sheetShadow,
-        ),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const SheetHandle(),
-          Flexible(child: child),
-        ]),
-      );
+  Widget build(BuildContext context) {
+    final bottom = math.max(28.0, 12 + MediaQuery.paddingOf(context).bottom);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final available = constraints.hasBoundedHeight
+            ? constraints.maxHeight
+            : MediaQuery.sizeOf(context).height;
+        return Container(
+          width: double.infinity,
+          constraints: BoxConstraints(maxHeight: maxHeight ?? available * 0.85),
+          padding: EdgeInsets.fromLTRB(20, 12, 20, bottom),
+          decoration: const BoxDecoration(
+            color: Brand.paper,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
+            boxShadow: Brand.sheetShadow,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Center(child: SheetHandle()),
+              Flexible(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  child: child,
+                ),
+              ),
+              if (footer != null) ...[
+                const SizedBox(height: 12),
+                footer!,
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class SheetHandle extends StatelessWidget {
@@ -506,22 +568,126 @@ class SheetHandle extends StatelessWidget {
       );
 }
 
+/// Opens a modal bottom sheet. Every modal sheet in the app goes through here.
+///
+/// [builder] returns the sheet itself — an [McSheet], which brings the handle,
+/// the scrolling body, the pinned `footer` slot and the system-bar inset. A
+/// form whose Save button reads the form's own state builds its [McSheet] from
+/// a stateful widget and returns that.
+///
+/// What this adds over a bare `showModalBottomSheet`:
+///  • `isScrollControlled` — otherwise Material caps the sheet at 9/16 of the
+///    screen and clips whatever doesn't fit, with no way to scroll to it;
+///  • `useSafeArea` — keeps a tall sheet out from under the status bar, while
+///    leaving the bottom inset for [McSheet] to pad;
+///  • the keyboard: the sheet is lifted by `viewInsets` read from the sheet's
+///    own context, so it follows the keyboard in and out while open.
+Future<T?> showMcBottomSheet<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+}) {
+  return showModalBottomSheet<T>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    // McSheet paints its own rounded paper background.
+    backgroundColor: Colors.transparent,
+    builder: (sheetContext) => _KeyboardLift(child: builder(sheetContext)),
+  );
+}
+
+/// Pads its child up by the keyboard's height, read from the sheet's own
+/// context. This element depends on that MediaQuery itself, so it rebuilds
+/// whenever the keyboard opens or closes, rather than relying on something else
+/// to rebuild the sheet (as reading it from the page's context did).
+class _KeyboardLift extends StatelessWidget {
+  const _KeyboardLift({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+        child: child,
+      );
+}
+
+/// Pinned footer for a full-screen page: its primary action, or two actions
+/// that belong together (primary first), stacked full width.
+///
+/// The page shape it is made for:
+///
+/// ```dart
+/// Scaffold(
+///   backgroundColor: Brand.bg,
+///   body: SafeArea(
+///     bottom: false,
+///     child: Column(children: [
+///       header,
+///       Expanded(child: SingleChildScrollView(child: content)),
+///       McActionBar(children: [McButton('Save', onTap: save)]),
+///     ]),
+///   ),
+/// )
+/// ```
+///
+///  • Put it in the Scaffold's **body**, not `bottomNavigationBar`: only the
+///    body is resized for the keyboard, so only there does the bar ride above
+///    it.
+///  • Use `SafeArea(bottom: false)`: the bar then pads itself by the bottom
+///    inset and its background runs on under the system bar. Under a SafeArea
+///    that already took the inset, MediaQuery reports none and the bar adds
+///    none — the inset is never counted twice.
+///
+/// Why the inset at all: both apps target SDK 36, so Android 15+ draws them
+/// edge-to-edge under the navigation bar (~48dp with 3-button navigation), and
+/// iOS under the home indicator (~34dp). A button laid out there is covered and
+/// its taps go to the system.
+class McActionBar extends StatelessWidget {
+  const McActionBar({super.key, required this.children, this.color = Brand.bg});
+
+  /// One or two buttons. A third stacked full-width button would take most of
+  /// a small screen, so it is not allowed.
+  final List<Widget> children;
+
+  /// The page's background colour, so the bar reads as the foot of the page.
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    assert(children.isNotEmpty && children.length <= 2,
+        'McActionBar holds one or two buttons, not ${children.length}.');
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(22, 12, 22, 12 + MediaQuery.paddingOf(context).bottom),
+      decoration: BoxDecoration(
+        color: color,
+        // The same hairline as the drawer footer and the tab bar.
+        border: const Border(top: BorderSide(color: Brand.fill)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            children[i],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 /// Bottom sheet offering "take a selfie" vs "choose from gallery" — the shared
 /// entry point for any photo upload. Returns null if dismissed without picking.
 Future<ImageSource?> showPictureSourcePicker(BuildContext context) {
-  return showModalBottomSheet<ImageSource>(
-    context: context,
-    backgroundColor: Brand.paper,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+  return showMcBottomSheet<ImageSource>(
+    context,
+    builder: (ctx) => McSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SheetHandle(),
           const McTitle('Add a photo', size: 20),
           const SizedBox(height: 6),
           Text('Take a selfie or choose one from your gallery',

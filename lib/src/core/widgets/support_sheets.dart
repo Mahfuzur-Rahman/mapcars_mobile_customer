@@ -102,19 +102,13 @@ Future<void> showSupportSheet(
   required String blurb,
   required List<Widget> Function(BuildContext sheetContext) tiles,
 }) {
-  return showModalBottomSheet<void>(
-    context: context,
-    backgroundColor: Brand.paper,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+  return showMcBottomSheet<void>(
+    context,
+    builder: (ctx) => McSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SheetHandle(),
           McTitle(title, size: 20),
           const SizedBox(height: 6),
           Text(blurb, style: tw(FontWeight.w600, 13.5, Brand.sub)),

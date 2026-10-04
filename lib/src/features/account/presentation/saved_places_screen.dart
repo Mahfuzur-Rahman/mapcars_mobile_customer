@@ -69,14 +69,13 @@ class SavedPlacesScreen extends ConsumerWidget {
   }
 
   Future<void> _openForm(BuildContext context, WidgetRef ref, {SavedPlace? existing}) {
-    return showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: _SavedPlaceForm(existing: existing),
-      ),
+    // The helper lifts the sheet above the keyboard (measured from the sheet's
+    // own context, not this page's) and the form's body scrolls, so the pinned
+    // Save button fits above it. Before, the unscrollable form overflowed the
+    // space left by the keyboard and Save was cut off.
+    return showMcBottomSheet<void>(
+      context,
+      builder: (_) => _SavedPlaceForm(existing: existing),
     );
   }
 
@@ -258,7 +257,26 @@ class _SavedPlaceFormState extends ConsumerState<_SavedPlaceForm> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.existing != null;
+    // Save is the footer, not the last field's neighbour: with the keyboard up
+    // the fields scroll and the button stays on screen above the keyboard. The
+    // error rides with it, since it is the answer to tapping Save and would
+    // otherwise appear in a part of the form scrolled out of view.
     return McSheet(
+      footer: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_error != null) ...[
+            Text(_error!, style: tw(FontWeight.w600, 13, Colors.red)),
+            const SizedBox(height: 12),
+          ],
+          McButton(
+            _saving ? 'Saving…' : 'Save place',
+            icon: _saving ? null : 'check',
+            onTap: _saving ? null : _save,
+          ),
+        ],
+      ),
       child: Padding(
         padding: const EdgeInsets.only(top: 4),
         child: Column(
@@ -302,16 +320,8 @@ class _SavedPlaceFormState extends ConsumerState<_SavedPlaceForm> {
                 ),
               ],
             ),
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Text(_error!, style: tw(FontWeight.w600, 13, Colors.red)),
-            ],
-            const SizedBox(height: 18),
-            McButton(
-              _saving ? 'Saving…' : 'Save place',
-              icon: _saving ? null : 'check',
-              onTap: _saving ? null : _save,
-            ),
+            // Old gap above the Save button; McSheet adds 12 before the footer.
+            const SizedBox(height: 6),
           ],
         ),
       ),

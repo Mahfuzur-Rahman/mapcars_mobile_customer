@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/config/env.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/widgets/mc.dart';
+import '../../../core/widgets/mc_tab_bar.dart';
 import '../../../core/widgets/support_sheets.dart';
 import '../../auth/providers/auth_notifier.dart';
 import '../../auth/services/customer_auth_service.dart';
@@ -29,7 +30,7 @@ class SettingsScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: Brand.bg,
-      bottomNavigationBar: const _CustomerTabBar(active: 'account'),
+      bottomNavigationBar: const McTabBar(active: 'account'),
       body: SafeArea(
         bottom: false,
         child: SingleChildScrollView(
@@ -259,19 +260,13 @@ class _SocialPill extends StatelessWidget {
 }
 
 void _showSocialsSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Brand.paper,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+  showMcBottomSheet<void>(
+    context,
+    builder: (ctx) => McSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SheetHandle(),
           const McTitle('Follow & Connect', size: 20),
           const SizedBox(height: 6),
           Text('Official MAP CARS community channels & social updates',
@@ -316,19 +311,13 @@ void _showSocialsSheet(BuildContext context) {
 }
 
 void _showNotificationsSheet(BuildContext context) {
-  showModalBottomSheet(
-    context: context,
-    backgroundColor: Brand.paper,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (ctx) => Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+  showMcBottomSheet<void>(
+    context,
+    builder: (ctx) => McSheet(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SheetHandle(),
           const McTitle('Notification Settings', size: 20),
           const SizedBox(height: 6),
           Text('Trip updates, driver arrival chimes, and receipts',
@@ -355,47 +344,4 @@ void _showNotificationsSheet(BuildContext context) {
       ),
     ),
   );
-}
-
-class _CustomerTabBar extends StatelessWidget {
-  const _CustomerTabBar({required this.active});
-  final String active;
-
-  @override
-  Widget build(BuildContext context) {
-    final items = [
-      ('home', 'Home', () => context.go('/home')),
-      ('receipt', 'Activity', () => context.go('/activity')),
-      ('user', 'Account', () => context.go('/account')),
-    ];
-    return Container(
-      height: 84,
-      decoration: const BoxDecoration(
-        color: Brand.paper,
-        border: Border(top: BorderSide(color: Brand.fill)),
-      ),
-      padding: const EdgeInsets.only(bottom: 18),
-      child: Row(
-        children: [
-          for (final (icon, label, onTap) in items)
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: onTap,
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Ico(icon, size: 24, color: active == label.toLowerCase() ? Brand.blue : Brand.faint),
-                    const SizedBox(height: 3),
-                    Text(label,
-                        style: tw(FontWeight.w800, 11,
-                            active == label.toLowerCase() ? Brand.blue : Brand.faint)),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }

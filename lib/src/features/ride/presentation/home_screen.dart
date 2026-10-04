@@ -93,7 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Align(
             alignment: Alignment.bottomCenter,
             child: McSheet(
-              height: 392,
+              maxHeight: 392,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,

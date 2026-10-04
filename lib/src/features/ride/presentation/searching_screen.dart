@@ -133,8 +133,11 @@ class _SearchingScreenState extends ConsumerState<SearchingScreen> {
               deadline: trip.expiresAt,
               builder: (context, left) {
                 final lapsed = left == Duration.zero;
+                // No cap of its own: the sheet fits its content (the default
+                // 85% cap only bites at very large text). The fixed 330 this
+                // had left 271dp for the lapsed state's ~303dp of content, which
+                // pushed the Cancel button out past the bottom of the sheet.
                 return McSheet(
-                  height: lapsed ? 330 : 320,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
