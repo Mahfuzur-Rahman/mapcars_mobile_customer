@@ -42,7 +42,10 @@ class AppConfig {
     }
   }
 
-  static bool get isDev => env == AppEnv.local;
+  /// Fails closed: store builds pass no `--dart-define`, so APP_ENV falls back
+  /// to `local` - `!kReleaseMode` stops a release build from ever being "dev"
+  /// (and so from showing the prototype drawer or the `/screens` route).
+  static bool get isDev => env == AppEnv.local && !kReleaseMode;
 
   /// App version for crash reports — pass at build time:
   /// `flutter build apk --dart-define=APP_VERSION=1.2.0`. Empty when unset,
