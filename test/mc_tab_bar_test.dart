@@ -38,12 +38,32 @@ void main() {
     });
   }
 
-  testWidgets('grows by the inset, so its background still reaches the edge',
+  testWidgets('grows past the inset, so its background still reaches the edge',
       (tester) async {
     await pumpOnSmallPhone(tester, _withTabBar());
     final bar = tester.getRect(find.byType(McTabBar));
-    expect(bar.height, 84 + kNavBarInset);
+    // 66 of bar proper + whatever sits beneath the labels (max(18, inset)).
+    expect(bar.height, 66 + kNavBarInset);
     expect(bar.bottom, kSmallPhone.height);
+  });
+
+  testWidgets('a small inset (iPhone home indicator) is absorbed by the 18dp',
+      (tester) async {
+    // 34dp indicator: the 18dp that always sat under the labels is replaced by
+    // the inset, not added to — 100dp, not 118.
+    await pumpOnSmallPhone(tester, _withTabBar());
+    tester.view
+      ..padding = const FakeViewPadding(bottom: 34)
+      ..viewPadding = const FakeViewPadding(bottom: 34);
+    await tester.pump();
+    expect(tester.getSize(find.byType(McTabBar)).height, 66 + 34);
+
+    // And an inset smaller than 18 changes nothing.
+    tester.view
+      ..padding = const FakeViewPadding(bottom: 10)
+      ..viewPadding = const FakeViewPadding(bottom: 10);
+    await tester.pump();
+    expect(tester.getSize(find.byType(McTabBar)).height, 84);
   });
 
   testWidgets('is the original 84dp when there is no inset', (tester) async {

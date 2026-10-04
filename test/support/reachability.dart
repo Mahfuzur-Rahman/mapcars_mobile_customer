@@ -12,9 +12,11 @@
 //   await pumpOnSmallPhone(tester, const MyScreen(), textScale: 1.3);
 //   expectReachableWithoutScrolling(tester, find.text('Save'));
 //
-// Screens that need their own app shell (a ProviderScope, a router) call
-// [configureSmallPhone] and pump themselves:
+// Screens that need their own app shell (a ProviderScope, a router) load the
+// real font, call [configureSmallPhone] and pump themselves — with
+// `theme: AppTheme.light`, or the font never applies:
 //
+//   await loadAppFonts();
 //   configureSmallPhone(tester, keyboard: true);
 //   await tester.pumpWidget(ProviderScope(child: MaterialApp(home: ...)));
 

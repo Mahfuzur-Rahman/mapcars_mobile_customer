@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
+import '../../../core/widgets/measure_height.dart';
 import '../models/trip.dart';
 import '../models/trip_status.dart';
 import '../providers/ride_flow_notifier.dart';
@@ -26,6 +27,15 @@ class TrackingScreen extends ConsumerStatefulWidget {
 class _TrackingScreenState extends ConsumerState<TrackingScreen> {
   TripEta? _eta;
   final ScrollController _sheetScroll = ScrollController();
+
+  /// How much of the map the sheet covers, so the map can keep its own
+  /// controls above it (see [TripTrackingMap.bottomObstruction]).
+  double _sheetHeight = 0;
+
+  /// Where the nav row and status pill end, measured from the top of the
+  /// screen. The sheet is capped, and the re-centre pill held, below this line.
+  /// Until the first layout reports the real figure, a typical one.
+  double _topBottom = 170;
 
   @override
   void dispose() {
@@ -126,175 +136,196 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
               destination: LatLng(trip.pickup.lat, trip.pickup.lng),
               destinationLabel: trip.pickup.label,
               isPickup: true,
-              onEta: (value) {
-                if (mounted) setState(() => _eta = value);
-              },
-            ),
-          ),
-          // Floating status pill.
-          Positioned(
-            top: 56,
-            left: 16,
-            right: 16,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                McFloatingNav(onBack: () => backOr(context, '/home')),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    // Arrival is the one moment on this screen the customer has to
-                    // act on, so it doesn't share the neutral en-route pill.
-                    color: arrived ? Brand.green : Brand.ink,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x5216202E), blurRadius: 18, offset: Offset(0, 6)),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Ico('car', size: 22, color: arrived ? Colors.white : Brand.lime),
-                      const SizedBox(width: 12),
-                      // Expanded, not a bare Column: a Row gives its children
-                      // unbounded width, so both lines used to lay out at their
-                      // natural length and overflow the pill on the right. It
-                      // only showed up once a driver was assigned, because that
-                      // is when the subtitle grows from "Your driver is on the
-                      // way" to "<driver name> is 1.2 km away".
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              arrived
-                                  ? 'Your driver has arrived'
-                                  : eta == null
-                                      // No position yet — don't invent a number.
-                                      ? 'Your driver is on the way'
-                                      : 'Arriving in ${eta.etaLabel}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tw(FontWeight.w900, 16, Colors.white),
-                            ),
-                            Text(
-                              _subtitle(
-                                  arrived: arrived,
-                                  driverName: driverName,
-                                  eta: eta,
-                                  stale: driverPosition?.isStale ?? false),
-                              // A long name must truncate, never push the pill
-                              // apart — this line is the widest thing here.
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: tw(FontWeight.w600, 12, Colors.white.withValues(alpha: 0.7)),
-                            ),
-                          ],
+              bottomObstruction: _sheetHeight,
+              topObstruction: _topBottom,
+              // Drawn between the map and its own controls, so the re-centre
+              // pill can sit above them when the sheet leaves no free map.
+              overlays: [
+                // Floating nav + status pill.
+                Positioned(
+                  top: 56,
+                  left: 16,
+                  right: 16,
+                  child: MeasureHeight(
+                    // The status line is as tall as its text; the re-centre pill and the
+                    // sheet cap are measured from its bottom edge.
+                    onHeight: (h) {
+                      if (mounted && 56 + h != _topBottom) setState(() => _topBottom = 56 + h);
+                    },
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        McFloatingNav(onBack: () => backOr(context, '/home')),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            // Arrival is the one moment on this screen the customer has to
+                            // act on, so it doesn't share the neutral en-route pill.
+                            color: arrived ? Brand.green : Brand.ink,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: const [
+                              BoxShadow(color: Color(0x5216202E), blurRadius: 18, offset: Offset(0, 6)),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Ico('car', size: 22, color: arrived ? Colors.white : Brand.lime),
+                              const SizedBox(width: 12),
+                              // Expanded, not a bare Column: a Row gives its children
+                              // unbounded width, so both lines used to lay out at their
+                              // natural length and overflow the pill on the right. It
+                              // only showed up once a driver was assigned, because that
+                              // is when the subtitle grows from "Your driver is on the
+                              // way" to "<driver name> is 1.2 km away".
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      arrived
+                                          ? 'Your driver has arrived'
+                                          : eta == null
+                                              // No position yet — don't invent a number.
+                                              ? 'Your driver is on the way'
+                                              : 'Arriving in ${eta.etaLabel}',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: tw(FontWeight.w900, 16, Colors.white),
+                                    ),
+                                    Text(
+                                      _subtitle(
+                                          arrived: arrived,
+                                          driverName: driverName,
+                                          eta: eta,
+                                          stale: driverPosition?.isStale ?? false),
+                                      // A long name must truncate, never push the pill
+                                      // apart — this line is the widest thing here.
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: tw(FontWeight.w600, 12, Colors.white.withValues(alpha: 0.7)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                      ],
+                    ),
+                  ),
+                ),
+                // The sheet is drawn by the map, above its controls, so a re-centre
+                // pill docked onto the sheet (no room above it) really is on top.
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: MeasureHeight(
+                    onHeight: (h) {
+                      if (mounted && h != _sheetHeight) setState(() => _sheetHeight = h);
+                    },
+                    child: McSheet(
+                      // Capped so there is always a strip of map between the status pill
+                      // and the sheet: the re-centre pill lives there, and the sheet used
+                      // to cover the status line at larger text.
+                      maxHeight: TripTrackingMap.sheetCap(context, _topBottom),
+                      // Kept so the PIN can be scrolled back into view on arrival.
+                      scrollController: _sheetScroll,
+                      // Pinned: with the driver card and PIN above it the body can run
+                      // long, and this is the one action that must never be a scroll away.
+                      footer: McGhostButton(
+                        'Cancel ride',
+                        icon: 'x',
+                        onTap: () => confirmCancelRide(context, ref),
                       ),
-                    ],
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // The PIN leads the sheet, before and after the driver arrives.
+                          // The customer reads it out to the driver at the kerb, so it
+                          // has to be readable at arm's length and never half a scroll
+                          // away: below the driver card and the meet-at row it was cut
+                          // off by the fold on a small phone (and the sheet is capped
+                          // so the map keeps a strip above it). Hidden when the trip
+                          // predates PINs.
+                          if (trip.pin != null) ...[
+                            _PinCard(pin: trip.pin!, arrived: arrived),
+                            const SizedBox(height: 12),
+                          ],
+                          DriverCard(
+                            driver: trip.driver,
+                            actions: Row(
+                              children: [
+                                Expanded(
+                                  child: _MiniButton(
+                                    icon: 'phone',
+                                    label: 'Call',
+                                    onTap: () =>
+                                        _makeCall(context, trip.driver?.phone),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: McBadge(
+                                    count: unread,
+                                    child: _MiniButton(
+                                      icon: 'msg',
+                                      label: 'Message',
+                                      semanticLabel: unread == 0
+                                          ? 'Message'
+                                          : 'Message, $unread unread',
+                                      onTap: () => context.push('/chat'),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: _MiniButton(
+                                    icon: 'shield',
+                                    label: 'Safety',
+                                    onTap: () => showTripSafetySheet(
+                                      context,
+                                      ref,
+                                      trip,
+                                      driverPosition: driverPosition,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(4, 14, 4, 12),
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(color: Brand.green, shape: BoxShape.circle),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    'Meet at ${trip.pickup.label}',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: tw(FontWeight.w700, 13),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: McSheet(
-              // Kept so the PIN can be scrolled back into view on arrival.
-              scrollController: _sheetScroll,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Once the driver is at the kerb the PIN is the only thing
-                  // the customer needs, so it moves to the top of the sheet. It
-                  // used to sit below the driver card and the meet-at row,
-                  // i.e. below the fold on a small phone, at exactly the
-                  // moment someone is being asked to read it out.
-                  if (arrived && trip.pin != null) ...[
-                    _PinCard(pin: trip.pin!, arrived: true),
-                    const SizedBox(height: 12),
-                  ],
-                  DriverCard(
-                    driver: trip.driver,
-                    actions: Row(
-                      children: [
-                        Expanded(
-                          child: _MiniButton(
-                            icon: 'phone',
-                            label: 'Call',
-                            onTap: () =>
-                                _makeCall(context, trip.driver?.phone),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: McBadge(
-                            count: unread,
-                            child: _MiniButton(
-                              icon: 'msg',
-                              label: 'Message',
-                              semanticLabel: unread == 0
-                                  ? 'Message'
-                                  : 'Message, $unread unread',
-                              onTap: () => context.push('/chat'),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: _MiniButton(
-                            icon: 'shield',
-                            label: 'Safety',
-                            onTap: () => showTripSafetySheet(
-                              context,
-                              ref,
-                              trip,
-                              driverPosition: driverPosition,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(4, 14, 4, 12),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 10,
-                          height: 10,
-                          decoration: const BoxDecoration(color: Brand.green, shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Meet at ${trip.pickup.label}',
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: tw(FontWeight.w700, 13),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // The driver keys this in before setting off, so it has to
-                  // be readable at arm's length in a car window — not a 12pt
-                  // aside. Hidden when the trip predates PINs.
-                  if (trip.pin case final pin? when !arrived) ...[
-                    _PinCard(pin: pin, arrived: false),
-                    const SizedBox(height: 12),
-                  ],
-                  McGhostButton(
-                    'Cancel ride',
-                    icon: 'x',
-                    onTap: () => confirmCancelRide(context, ref),
-                  ),
-                ],
-              ),
+              onEta: (value) {
+                if (mounted) setState(() => _eta = value);
+              },
             ),
           ),
         ],
@@ -305,8 +336,9 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
 
 /// Shows a "cancel this ride?" confirmation with an optional reason field,
 /// then calls [RideFlowNotifier.cancelActiveTrip] — only leaving the screen
-/// once the cancel actually succeeds. Shared by [TrackingScreen] and
-/// [InProgressScreen] (both let the customer cancel while a trip is active).
+/// once the cancel actually succeeds. Used by [TrackingScreen], while a driver is
+/// on the way. It is deliberately not offered once the trip is under way: the
+/// API refuses to cancel an in-progress trip.
 Future<void> confirmCancelRide(BuildContext context, WidgetRef ref) async {
   final reasonController = TextEditingController();
   final confirmed = await showDialog<bool>(

@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/widgets/mc.dart';
 import '../../../core/widgets/current_location_map.dart';
+import '../../../core/widgets/measure_height.dart';
 import '../models/trip_status.dart';
 import '../providers/ride_flow_notifier.dart';
 import '../providers/search_history_provider.dart';
@@ -25,6 +26,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   /// the cars move ~12×/s, and only the map layer should repaint at that rate —
   /// not the "Where to?" sheet underneath it.
   final ValueNotifier<Set<Marker>> _carMarkers = ValueNotifier(const {});
+
+  /// How much of the map the sheet covers. The map keeps its location-error
+  /// message and Retry button in the part that is still visible above it.
+  double _sheetHeight = 0;
 
   late final LiveNearbyCars _cars = LiveNearbyCars(
     onUpdate: (markers) => _carMarkers.value = markers,
@@ -70,6 +75,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               valueListenable: _carMarkers,
               builder: (context, cars, _) => CurrentLocationMap(
                 markers: cars,
+                // Below the Menu / Account buttons (they end at 58 + 44, plus a 4dp
+                // margin), above the sheet.
+                topObstruction: 106,
+                bottomObstruction: _sheetHeight,
                 onLocated: _cars.start,
                 // Follow the map: pan to another part of town and the cars shown
                 // are the ones actually there, sized to what's on screen.
@@ -92,96 +101,101 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           Align(
             alignment: Alignment.bottomCenter,
-            child: McSheet(
-              maxHeight: 392,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      const McTitle('Where to?', size: 22),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Ico('clock', size: 16, color: Brand.sub),
-                          const SizedBox(width: 5),
-                          Text('Now', style: tw(FontWeight.w700, 13, Brand.sub)),
-                          const SizedBox(width: 2),
-                          const Ico('chevD', size: 14, color: Brand.sub),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  McField(
-                    icon: 'search',
-                    placeholder: 'Enter destination',
-                    onTap: () => context.push('/set-route'),
-                  ),
-                  const SizedBox(height: 14),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final saved = ref.watch(savedPlacesNotifierProvider);
-                      final homePlace = saved.home;
-                      final workPlace = saved.work;
-                      final recents = ref.watch(searchHistoryProvider);
-                      final recentPlace = recents.isNotEmpty ? recents.first : null;
+            child: MeasureHeight(
+              onHeight: (h) {
+                if (mounted && h != _sheetHeight) setState(() => _sheetHeight = h);
+              },
+              child: McSheet(
+                maxHeight: 392,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const McTitle('Where to?', size: 22),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Ico('clock', size: 16, color: Brand.sub),
+                            const SizedBox(width: 5),
+                            Text('Now', style: tw(FontWeight.w700, 13, Brand.sub)),
+                            const SizedBox(width: 2),
+                            const Ico('chevD', size: 14, color: Brand.sub),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    McField(
+                      icon: 'search',
+                      placeholder: 'Enter destination',
+                      onTap: () => context.push('/set-route'),
+                    ),
+                    const SizedBox(height: 14),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final saved = ref.watch(savedPlacesNotifierProvider);
+                        final homePlace = saved.home;
+                        final workPlace = saved.work;
+                        final recents = ref.watch(searchHistoryProvider);
+                        final recentPlace = recents.isNotEmpty ? recents.first : null;
 
-                      return Column(
-                        children: [
-                          _SavedRow(
-                            icon: 'home',
-                            title: 'Home',
-                            sub: homePlace != null
-                                ? (homePlace.address.isNotEmpty
-                                    ? homePlace.address
-                                    : homePlace.label)
-                                : 'Set home address',
-                            divider: true,
-                            onTap: () {
-                              if (homePlace != null) {
-                                context.push('/route-preview', extra: homePlace);
-                              } else {
-                                context.push('/set-route');
-                              }
-                            },
-                          ),
-                          _SavedRow(
-                            icon: 'heart',
-                            title: 'Work',
-                            sub: workPlace != null
-                                ? (workPlace.address.isNotEmpty
-                                    ? workPlace.address
-                                    : workPlace.label)
-                                : 'Set work address',
-                            divider: recentPlace != null,
-                            onTap: () {
-                              if (workPlace != null) {
-                                context.push('/route-preview', extra: workPlace);
-                              } else {
-                                context.push('/set-route');
-                              }
-                            },
-                          ),
-                          if (recentPlace != null)
+                        return Column(
+                          children: [
                             _SavedRow(
-                              icon: 'clock',
-                              title: recentPlace.label,
-                              sub: recentPlace.address.isNotEmpty
-                                  ? recentPlace.address
-                                  : 'Recent destination',
-                              divider: false,
-                              onTap: () =>
-                                  context.push('/route-preview', extra: recentPlace),
+                              icon: 'home',
+                              title: 'Home',
+                              sub: homePlace != null
+                                  ? (homePlace.address.isNotEmpty
+                                      ? homePlace.address
+                                      : homePlace.label)
+                                  : 'Set home address',
+                              divider: true,
+                              onTap: () {
+                                if (homePlace != null) {
+                                  context.push('/route-preview', extra: homePlace);
+                                } else {
+                                  context.push('/set-route');
+                                }
+                              },
                             ),
-                        ],
-                      );
-                    },
-                  ),
-                ],
+                            _SavedRow(
+                              icon: 'heart',
+                              title: 'Work',
+                              sub: workPlace != null
+                                  ? (workPlace.address.isNotEmpty
+                                      ? workPlace.address
+                                      : workPlace.label)
+                                  : 'Set work address',
+                              divider: recentPlace != null,
+                              onTap: () {
+                                if (workPlace != null) {
+                                  context.push('/route-preview', extra: workPlace);
+                                } else {
+                                  context.push('/set-route');
+                                }
+                              },
+                            ),
+                            if (recentPlace != null)
+                              _SavedRow(
+                                icon: 'clock',
+                                title: recentPlace.label,
+                                sub: recentPlace.address.isNotEmpty
+                                    ? recentPlace.address
+                                    : 'Recent destination',
+                                divider: false,
+                                onTap: () =>
+                                    context.push('/route-preview', extra: recentPlace),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

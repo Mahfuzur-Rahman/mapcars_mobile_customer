@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -65,6 +66,8 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
     if (widget.initialPosition != null) {
       _currentCenter = widget.initialPosition!;
     }
+    // The GPS button hides while the search field is focused (see build).
+    _searchFocus.addListener(_onSearchFocusChanged);
     _initLocation();
   }
 
@@ -79,6 +82,10 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
   }
 
   // ── Search ────────────────────────────────────────────────────────────────
+
+  void _onSearchFocusChanged() {
+    if (mounted) setState(() {});
+  }
 
   void _onSearchChanged(String value) {
     _searchDebounce?.cancel();
@@ -497,121 +504,138 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
             ),
           ),
 
-          // Floating GPS Recenter FAB
-          Positioned(
-            bottom: 220,
-            right: 16,
-            child: FloatingActionButton(
-              heroTag: 'recenter_gps_fab',
-              onPressed: _isLocating ? null : _recenterToGps,
-              backgroundColor: Colors.white,
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-              child: _isLocating
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2.5, color: Brand.blue),
-                    )
-                  : const Icon(Icons.my_location_rounded, color: Brand.blue, size: 24),
-            ),
-          ),
-
-          // Bottom Location Card Sheet
+          // Bottom: the GPS button, then the location card under it. One column,
+          // so the button rides on the card's top edge however tall the card gets
+          // (larger text, a nav-bar inset) instead of sitting at a fixed height
+          // that the card can grow over.
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 24,
-                    offset: const Offset(0, -6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Not while the search field has focus: with the keyboard up the
+                // search bar and this button share a corner, and the button sat
+                // over the bar's clear (x) button, so tapping x re-centred the map.
+                if (!_searchFocus.hasFocus)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(0, 0, 16, 14),
+                      child: FloatingActionButton(
+                        heroTag: 'recenter_gps_fab',
+                        onPressed: _isLocating ? null : _recenterToGps,
+                        backgroundColor: Colors.white,
+                        elevation: 4,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        child: _isLocating
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(strokeWidth: 2.5, color: Brand.blue),
+                              )
+                            : const Icon(Icons.my_location_rounded, color: Brand.blue, size: 24),
+                      ),
+                    ),
                   ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                // The location card.
+                Container(
+                  // Clears the system bar: the card runs to the screen edge, but its
+                  // button stops `12 + inset` above it (never under 32, the old look).
+                  padding: EdgeInsets.fromLTRB(
+                      20, 20, 20, math.max(32.0, 12 + MediaQuery.paddingOf(context).bottom)),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 24,
+                        offset: const Offset(0, -6),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Brand.blue.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Ico('pin', size: 22, color: Brand.blue),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Brand.blue.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: const Ico('pin', size: 22, color: Brand.blue),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: Text(
-                                    label,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: tw(FontWeight.w900, 16.5),
-                                  ),
-                                ),
-                                if (_isResolvingAddress) ...[
-                                  const SizedBox(width: 8),
-                                  const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Brand.blue,
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: tw(FontWeight.w900, 16.5),
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    if (_isResolvingAddress) ...[
+                                      const SizedBox(width: 8),
+                                      const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Brand.blue,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  address,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: tw(FontWeight.w600, 13, Brand.sub),
+                                ),
                               ],
                             ),
-                            const SizedBox(height: 3),
-                            Text(
-                              address,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: tw(FontWeight.w600, 13, Brand.sub),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          const Icon(Icons.open_with_rounded, size: 14, color: Brand.faint),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              _fromSearch
+                                  ? 'Drag the map to fine-tune this spot'
+                                  : 'Drag the map to move the pin',
+                              style: tw(FontWeight.w600, 11.5, Brand.faint),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      McButton(
+                        'Confirm this location',
+                        onTap: _confirmSelection,
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      const Icon(Icons.open_with_rounded, size: 14, color: Brand.faint),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          _fromSearch
-                              ? 'Drag the map to fine-tune this spot'
-                              : 'Drag the map to move the pin',
-                          style: tw(FontWeight.w600, 11.5, Brand.faint),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  McButton(
-                    'Confirm this location',
-                    onTap: _confirmSelection,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

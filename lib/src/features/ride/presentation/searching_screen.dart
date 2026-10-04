@@ -137,7 +137,12 @@ class _SearchingScreenState extends ConsumerState<SearchingScreen> {
                 // 85% cap only bites at very large text). The fixed 330 this
                 // had left 271dp for the lapsed state's ~303dp of content, which
                 // pushed the Cancel button out past the bottom of the sheet.
+                //
+                // The buttons are the footer, so they stay put whatever the body
+                // does — and the lapsed state, where the customer has a minute to
+                // answer, is exactly where they must not be a scroll away.
                 return McSheet(
+                  footer: _footer(trip, lapsed),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -185,12 +190,29 @@ class _SearchingScreenState extends ConsumerState<SearchingScreen> {
         ),
         const SizedBox(height: 18),
         _tripCard(trip),
-        const SizedBox(height: 14),
-        McGhostButton(
-          _cancelling ? 'Cancelling…' : 'Cancel request',
-          onTap: _cancelling ? null : _cancel,
-        ),
       ];
+
+  /// The sheet's pinned actions. Still looking: just the way out. Window
+  /// lapsed: keep going, or stop — the ride is on a clock, so both are in reach.
+  Widget _footer(Trip trip, bool lapsed) {
+    final cancel = McGhostButton(
+      _cancelling ? 'Cancelling…' : (lapsed ? 'Cancel ride' : 'Cancel request'),
+      onTap: _cancelling ? null : _cancel,
+    );
+    if (!lapsed || !trip.canExtend) return cancel;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        McButton(
+          _extending ? 'Keeping it open…' : 'Keep searching',
+          onTap: _extending ? null : _keepSearching,
+        ),
+        const SizedBox(height: 10),
+        cancel,
+      ],
+    );
+  }
 
   /// The window closed. Ask — and be honest that not answering ends the ride.
   List<Widget> _lapsed(Trip trip) {
@@ -236,17 +258,6 @@ class _SearchingScreenState extends ConsumerState<SearchingScreen> {
       ),
       const SizedBox(height: 14),
       _tripCard(trip),
-      const SizedBox(height: 14),
-      if (canExtend)
-        McButton(
-          _extending ? 'Keeping it open…' : 'Keep searching',
-          onTap: _extending ? null : _keepSearching,
-        ),
-      if (canExtend) const SizedBox(height: 8),
-      McGhostButton(
-        _cancelling ? 'Cancelling…' : 'Cancel ride',
-        onTap: _cancelling ? null : _cancel,
-      ),
     ];
   }
 

@@ -483,8 +483,13 @@ class McAvatar extends StatelessWidget {
 /// with larger text, a short phone or the keyboard up, the body gives way and
 /// the action stays on screen.
 ///
-/// The sheet sizes to its content, capped at [maxHeight] (or 85% of the space
-/// it is given, so some of the map or page always shows above it).
+/// The sheet sizes to its content, capped at 85% of the space it is given, so a
+/// strip of the map or page always shows above it. That is a share, not a
+/// guarantee about what is in the strip: on a 640dp phone it puts the sheet's top
+/// at ~96, a few dp over the bottom of the floating buttons (top 58, 44 tall).
+/// A screen that must keep something clear above the sheet — a status pill, a
+/// map control — passes a lower [maxHeight]. [maxHeight] can lower the cap but
+/// never raise it.
 ///
 /// Bottom padding is inset-aware. Both apps target SDK 36, so Android 15+ draws
 /// them edge-to-edge, under the navigation bar (~48dp with 3-button navigation),
@@ -509,8 +514,9 @@ class McSheet extends StatelessWidget {
   /// Pinned below [child], never scrolled away.
   final Widget? footer;
 
-  /// The most the sheet may grow to, padding included. Null means 85% of the
-  /// height available to it.
+  /// The most the sheet may grow to, padding included — a figure picked for a
+  /// typical phone, so it is also held to 85% of the height available (the
+  /// default when null). A short screen therefore always keeps some map.
   final double? maxHeight;
 
   /// Controls [child]'s scroll view, e.g. to jump back to the top when
@@ -527,7 +533,8 @@ class McSheet extends StatelessWidget {
             : MediaQuery.sizeOf(context).height;
         return Container(
           width: double.infinity,
-          constraints: BoxConstraints(maxHeight: maxHeight ?? available * 0.85),
+          constraints: BoxConstraints(
+              maxHeight: math.min(maxHeight ?? double.infinity, available * 0.85)),
           padding: EdgeInsets.fromLTRB(20, 12, 20, bottom),
           decoration: const BoxDecoration(
             color: Brand.paper,

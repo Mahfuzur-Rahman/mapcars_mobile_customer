@@ -96,6 +96,15 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
             alignment: Alignment.bottomCenter,
             child: McSheet(
               maxHeight: 540,
+              // Pinned: this is the screen's whole point, and with the tip and
+              // payment choices above it the body outgrows a small phone (or
+              // larger text) — it scrolls, the button doesn't.
+              footer: McButton(
+                _submitting ? 'Booking…' : 'Confirm MAP CARS',
+                icon: 'check',
+                kind: BtnKind.grad,
+                onTap: canConfirm ? _confirm : null,
+              ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -167,7 +176,10 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                   Text('Add a tip to get picked up faster',
                       style: tw(FontWeight.w700, 13, Brand.sub)),
                   const SizedBox(height: 8),
-                  Row(
+                  // A Wrap, not a Row: from ~1.5x text four chips are wider than the
+                  // sheet, and a Row just overflowed its right edge.
+                  Wrap(
+                    runSpacing: 8,
                     children: [
                       for (final t in _tipOptions) _TipChip(
                         pounds: t,
@@ -223,13 +235,6 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                       Text(option == null ? '—' : formatGbp(totalPence),
                           style: tw(FontWeight.w900, 22)),
                     ],
-                  ),
-                  const SizedBox(height: 14),
-                  McButton(
-                    _submitting ? 'Booking…' : 'Confirm MAP CARS',
-                    icon: 'check',
-                    kind: BtnKind.grad,
-                    onTap: canConfirm ? _confirm : null,
                   ),
                 ],
               ),

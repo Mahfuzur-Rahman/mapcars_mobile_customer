@@ -25,6 +25,29 @@ class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
     final quote = ref.watch(rideQuoteProvider);
     // Guaranteed by `RouteGate` — this screen is only reachable with a route.
     final flow = ref.watch(rideFlowProvider);
+
+    // The primary action, pinned under the list. It exists in every state — a
+    // disabled "pricing" button while loading, Retry on error — so the sheet is
+    // the same height throughout and nothing jumps when the prices arrive.
+    final Widget footer = quote.when(
+      loading: () => const McButton('Pricing your trip…', icon: 'bolt'),
+      error: (e, _) => McButton('Retry', icon: 'clock', onTap: () {
+        ref.invalidate(fareChartProvider);
+        ref.invalidate(rideQuoteProvider);
+      }),
+      data: (q) {
+        final sel = q.options[_selected.clamp(0, q.options.length - 1)];
+        return McButton(
+          'Choose ${sel.name} · ${sel.formattedPrice}',
+          icon: 'bolt',
+          onTap: () {
+            ref.read(rideFlowProvider.notifier).selectOption(sel.id);
+            context.push('/confirm');
+          },
+        );
+      },
+    );
+
     return Scaffold(
       body: Stack(
         children: [
@@ -46,43 +69,29 @@ class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
             child: McSheet(
               // A cap, not a size: the sheet fits its content up to here, so
               // the route stays in view above it. McSheet spends
-              // 12 + max(28, 12 + bottom inset) on padding and 19 on its
-              // handle — with no inset that leaves 387 for content, and the
-              // compact layout needs ~366 for the live 4-tier chart (title 26
-              // + gap 3 + summary 17 + gap 12 + button 54 + gap 12 + 4 rows at
-              // 56 + 3 gaps at 6). A fifth tier, larger text or a nav-bar
-              // inset makes the list scroll inside the sheet instead.
-              maxHeight: 446,
+              // 12 + max(28, 12 + bottom inset) on padding and 19 on its handle,
+              // and the pinned button takes 12 + 54 more, which leaves
+              // _pricedBodyHeight (304) for today's 4-tier chart. With a 48dp
+              // nav-bar inset that is 31 + 304 + 66 + 60 = 461; 480 adds slack
+              // for font metrics, so the four tiers show without scrolling on a
+              // 360x640 phone. A fifth tier or larger text makes the *list*
+              // scroll inside the sheet — the button stays where it is — and
+              // McSheet holds this to 85% of a short screen regardless.
+              maxHeight: 480,
+              footer: footer,
               child: quote.when(
-                loading: () => const Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(vertical: 40),
-                    child: CircularProgressIndicator(),
-                  ),
+                loading: () => const _PlaceholderBody(
+                  child: CircularProgressIndicator(),
                 ),
-                error: (e, _) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 40),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Could not price this trip.',
-                          style: tw(FontWeight.w700, 14, Brand.sub)),
-                      const SizedBox(height: 10),
-                      McGhostButton('Retry', onTap: () {
-                        ref.invalidate(fareChartProvider);
-                        ref.invalidate(rideQuoteProvider);
-                      }),
-                    ],
-                  ),
+                error: (e, _) => _PlaceholderBody(
+                  child: Text('Could not price this trip.',
+                      textAlign: TextAlign.center,
+                      style: tw(FontWeight.w700, 14, Brand.sub)),
                 ),
                 data: (q) => _RideList(
                   quote: q,
                   selected: _selected.clamp(0, q.options.length - 1),
                   onSelect: (i) => setState(() => _selected = i),
-                  onConfirm: (option) {
-                    ref.read(rideFlowProvider.notifier).selectOption(option.id);
-                    context.push('/confirm');
-                  },
                 ),
               ),
             ),
@@ -93,27 +102,53 @@ class _ChooseRideScreenState extends ConsumerState<ChooseRideScreen> {
   }
 }
 
+// What the priced list is made of, for sizing the loading and error states to
+// match it. These mirror the layout below: change one and change the other.
+const double _headerHeight = 27 + 3 + 18 + 12; // title, gap, summary, gap
+const double _rowHeight = 56;
+const double _rowGap = 6;
+// The selected row's border is 2dp, the others' 1dp: 2dp taller in all.
+const double _selectedRowExtra = 2;
+const int _typicalTiers = 4;
+
+/// The priced list's height with today's four tiers at normal text.
+const double _pricedBodyHeight =
+    _headerHeight +
+        _typicalTiers * _rowHeight +
+        _selectedRowExtra +
+        (_typicalTiers - 1) * _rowGap;
+
+/// Holds [child] centred in as much room as the priced list will take.
+class _PlaceholderBody extends StatelessWidget {
+  const _PlaceholderBody({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: _pricedBodyHeight),
+        child: Center(child: child),
+      );
+}
+
 class _RideList extends StatelessWidget {
   const _RideList({
     required this.quote,
     required this.selected,
     required this.onSelect,
-    required this.onConfirm,
   });
 
   final RideQuote quote;
   final int selected;
   final ValueChanged<int> onSelect;
-  final ValueChanged<RideOption> onConfirm;
 
   @override
   Widget build(BuildContext context) {
     final options = quote.options;
-    final sel = options[selected];
-    // The confirm button sits directly under the heading rather than after the
-    // list. Below the tiers it was the one control that scrolled off on a small
-    // phone, so the primary action was the hardest thing on the screen to
-    // reach; here it never moves as the selection changes.
+    // The choose button is not here: it is the sheet's footer, so it stays on
+    // screen whatever this list does. It used to sit under the heading, which
+    // kept it out of the way of a short list but scrolled it out of view with
+    // the first rows as soon as the list outgrew the sheet (larger text, a
+    // fifth tier).
     //
     // The rows are sized so the whole set is visible at once — see _RideRow.
     // McSheet scrolls the list as a safety net for a very small screen or a
@@ -127,19 +162,13 @@ class _RideList extends StatelessWidget {
         const SizedBox(height: 3),
         Text(quote.summary, style: tw(FontWeight.w600, 12.5, Brand.sub)),
         const SizedBox(height: 12),
-        McButton(
-          'Choose ${sel.name} · ${sel.formattedPrice}',
-          icon: 'bolt',
-          onTap: () => onConfirm(sel),
-        ),
-        const SizedBox(height: 12),
         for (int i = 0; i < options.length; i++) ...[
           _RideRow(
             ride: options[i],
             selected: i == selected,
             onTap: () => onSelect(i),
           ),
-          if (i < options.length - 1) const SizedBox(height: 6),
+          if (i < options.length - 1) const SizedBox(height: _rowGap),
         ],
         // The payment method and any promo are chosen on the confirm screen,
         // against the real booking. What sat here was a fixed "•••• 4242"

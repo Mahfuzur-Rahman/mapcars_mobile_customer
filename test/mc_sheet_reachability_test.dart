@@ -98,6 +98,18 @@ void main() {
     expect(tester.getSize(find.byType(McSheet)).height, 300);
   });
 
+  testWidgets('an explicit maxHeight is held to the 85% share too',
+      (tester) async {
+    // Callers pick maxHeight for a typical phone. On a short one it must not
+    // outgrow the 85% share, or the floating back button (top ~58) is covered.
+    await pumpOnSmallPhone(
+      tester,
+      _mapScreen(McSheet(maxHeight: 700, child: _tallBody())),
+    );
+    expect(tester.getSize(find.byType(McSheet)).height,
+        closeTo(kSmallPhone.height * 0.85, 0.5));
+  });
+
   testWidgets('with no maxHeight, caps at 85% of the available height',
       (tester) async {
     await pumpOnSmallPhone(tester, _mapScreen(McSheet(child: _tallBody())));

@@ -1,13 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../../core/widgets/mc.dart';
+import '../../../core/widgets/measure_height.dart';
 import '../models/trip.dart';
 import '../models/trip_status.dart';
 import '../providers/ride_flow_notifier.dart';
-import 'tracking_screen.dart' show confirmCancelRide;
 import 'widgets/driver_card.dart';
 import 'widgets/trip_safety.dart';
 import 'widgets/trip_tracking_map.dart';
@@ -24,6 +26,15 @@ class InProgressScreen extends ConsumerStatefulWidget {
 
 class _InProgressScreenState extends ConsumerState<InProgressScreen> {
   TripEta? _eta;
+
+  /// How much of the map the sheet covers, so the map can keep its own
+  /// controls above it (see [TripTrackingMap.bottomObstruction]).
+  double _sheetHeight = 0;
+
+  /// Where the nav row and status pill end, measured from the top of the
+  /// screen. The sheet is capped, and the re-centre pill held, below this line.
+  /// Until the first layout reports the real figure, a typical one.
+  double _topBottom = 170;
 
   @override
   void initState() {
@@ -70,170 +81,190 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
               destination: LatLng(trip.dropoff.lat, trip.dropoff.lng),
               destinationLabel: trip.dropoff.label,
               isPickup: false,
-              onEta: (value) {
-                if (mounted) setState(() => _eta = value);
-              },
-            ),
-          ),
-          // Floating nav + status pill.
-          Positioned(
-            top: 56,
-            left: 16,
-            right: 16,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Mid-trip: no back (there is nothing to go back to), but the
-                // menu still has to be reachable.
-                const McFloatingNav(showBack: false),
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Brand.ink,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x5216202E), blurRadius: 18, offset: Offset(0, 6)),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      const Ico('car', size: 22, color: Brand.lime),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            eta == null
-                                ? 'On trip'
-                                : 'Arriving in ${eta.etaLabel}',
-                            style: tw(FontWeight.w900, 16, Colors.white),
+              bottomObstruction: _sheetHeight,
+              topObstruction: _topBottom,
+              // Drawn between the map and its own controls, so the re-centre
+              // pill can sit above them when the sheet leaves no free map.
+              overlays: [
+                // Floating nav + status pill.
+                Positioned(
+                  top: 56,
+                  left: 16,
+                  right: 16,
+                  child: MeasureHeight(
+                    // The status line is as tall as its text; the re-centre pill and the
+                    // sheet cap are measured from its bottom edge.
+                    onHeight: (h) {
+                      if (mounted && 56 + h != _topBottom) setState(() => _topBottom = 56 + h);
+                    },
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Mid-trip: no back (there is nothing to go back to), but the
+                        // menu still has to be reachable.
+                        const McFloatingNav(showBack: false),
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: Brand.ink,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: const [
+                              BoxShadow(color: Color(0x5216202E), blurRadius: 18, offset: Offset(0, 6)),
+                            ],
                           ),
-                          Text(
-                            eta == null
-                                ? trip.dropoff.label
-                                : '${eta.distanceLabel} to ${trip.dropoff.label}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: tw(FontWeight.w600, 12, Colors.white.withValues(alpha: 0.7)),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: McSheet(
-              maxHeight: 360,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Destination row.
-                  Row(
-                    children: [
-                      Container(
-                        width: 11,
-                        height: 11,
-                        decoration: BoxDecoration(
-                          color: Brand.blue,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(trip.dropoff.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: tw(FontWeight.w900, 15)),
-                            Text('Destination', style: tw(FontWeight.w600, 12, Brand.sub)),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      // Real progress along the route, not a painted 62%.
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(99),
-                        child: SizedBox(
-                          width: 90,
-                          height: 6,
-                          child: Stack(
+                          child: Row(
                             children: [
-                              Container(color: Brand.fill),
-                              FractionallySizedBox(
-                                widthFactor: eta?.fraction ?? 0.0,
-                                child: Container(
-                                  decoration: const BoxDecoration(gradient: Brand.grad),
-                                ),
+                              const Ico('car', size: 22, color: Brand.lime),
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    eta == null
+                                        ? 'On trip'
+                                        : 'Arriving in ${eta.etaLabel}',
+                                    style: tw(FontWeight.w900, 16, Colors.white),
+                                  ),
+                                  Text(
+                                    eta == null
+                                        ? trip.dropoff.label
+                                        : '${eta.distanceLabel} to ${trip.dropoff.label}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: tw(FontWeight.w600, 12, Colors.white.withValues(alpha: 0.7)),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  DriverCard(driver: trip.driver),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: McGhostButton(
-                          'Safety',
-                          icon: 'shield',
-                          onTap: () => showTripSafetySheet(
-                            context,
-                            ref,
-                            trip,
-                            driverPosition: driverPosition,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: McGhostButton(
-                          'Share trip',
-                          icon: 'nav',
-                          onTap: () => shareTrip(
-                            trip,
-                            driverPosition: driverPosition,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  // Chat existed but was reachable only while waiting for the
-                  // driver — the customer lost it the moment they got in the car,
-                  // which is when "I left my bag on the seat" happens.
-                  McBadge(
-                    count: unread,
-                    child: McGhostButton(
-                      'Message driver',
-                      icon: 'msg',
-                      semanticLabel: unread == 0
-                          ? 'Message driver'
-                          : 'Message driver, $unread unread',
-                      onTap: () => context.push('/chat'),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  McGhostButton(
-                    'Cancel ride',
-                    icon: 'x',
-                    onTap: () => confirmCancelRide(context, ref),
+                ),
+                // The sheet is drawn by the map, above its controls, so a re-centre
+                // pill docked onto the sheet (no room above it) really is on top.
+                Align(
+                  alignment: Alignment.bottomCenter,
+                  child: MeasureHeight(
+                    onHeight: (h) {
+                      if (mounted && h != _sheetHeight) setState(() => _sheetHeight = h);
+                    },
+                    child: McSheet(
+                      // Capped so the strip above it still holds the re-centre pill.
+                      maxHeight: math.min(
+                          360, TripTrackingMap.sheetCap(context, _topBottom)),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          // Destination row.
+                          Row(
+                            children: [
+                              Container(
+                                width: 11,
+                                height: 11,
+                                decoration: BoxDecoration(
+                                  color: Brand.blue,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(trip.dropoff.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: tw(FontWeight.w900, 15)),
+                                    Text('Destination', style: tw(FontWeight.w600, 12, Brand.sub)),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              // Real progress along the route, not a painted 62%.
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(99),
+                                child: SizedBox(
+                                  width: 90,
+                                  height: 6,
+                                  child: Stack(
+                                    children: [
+                                      Container(color: Brand.fill),
+                                      FractionallySizedBox(
+                                        widthFactor: eta?.fraction ?? 0.0,
+                                        child: Container(
+                                          decoration: const BoxDecoration(gradient: Brand.grad),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 14),
+                          DriverCard(driver: trip.driver),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: McGhostButton(
+                                  'Safety',
+                                  icon: 'shield',
+                                  onTap: () => showTripSafetySheet(
+                                    context,
+                                    ref,
+                                    trip,
+                                    driverPosition: driverPosition,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: McGhostButton(
+                                  'Share trip',
+                                  icon: 'nav',
+                                  onTap: () => shareTrip(
+                                    trip,
+                                    driverPosition: driverPosition,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          // Chat existed but was reachable only while waiting for the
+                          // driver — the customer lost it the moment they got in the car,
+                          // which is when "I left my bag on the seat" happens.
+                          McBadge(
+                            count: unread,
+                            child: McGhostButton(
+                              'Message driver',
+                              icon: 'msg',
+                              semanticLabel: unread == 0
+                                  ? 'Message driver'
+                                  : 'Message driver, $unread unread',
+                              onTap: () => context.push('/chat'),
+                            ),
+                          ),
+                          // No "Cancel ride" once the trip is under way: the API
+                          // refuses to cancel an in-progress trip, so the button could
+                          // only ever produce an error. Safety is the way out of a
+                          // ride that has gone wrong.
+                        ],
+                      ),
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
+              onEta: (value) {
+                if (mounted) setState(() => _eta = value);
+              },
             ),
           ),
         ],

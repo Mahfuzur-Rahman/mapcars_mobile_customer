@@ -57,7 +57,30 @@ class TripTrackingMap extends ConsumerStatefulWidget {
     this.destinationLabel = 'Destination',
     this.isPickup = true,
     this.onEta,
+    this.bottomObstruction = 0,
+    this.topObstruction = 0,
+    this.overlays = const [],
   });
+
+  /// Space kept around the re-centre pill: above the sheet, and below the top
+  /// controls.
+  static const double _pillGap = 14;
+
+  /// How tall the re-centre pill is at the current text size: 20dp of padding
+  /// around one line of 12.5pt text.
+  static double refitPillHeight(BuildContext context) =>
+      20 + MediaQuery.textScalerOf(context).scale(18);
+
+  /// The tallest a sheet over this map can be and still leave a strip between
+  /// [topObstruction] (where the screen's top controls end) and itself that
+  /// holds the re-centre pill with its margins. Never below 240, so a tiny
+  /// screen gets a usable sheet; the pill then docks on the sheet rather than
+  /// covering the controls.
+  static double sheetCap(BuildContext context, double topObstruction) {
+    final strip = TripTrackingMap._pillGap + refitPillHeight(context) + 8;
+    return math.max(240.0,
+        MediaQuery.sizeOf(context).height - topObstruction - strip);
+  }
 
   /// Live driver position; null until a driver is assigned and reporting.
   final DriverLocation? driver;
@@ -69,6 +92,22 @@ class TripTrackingMap extends ConsumerStatefulWidget {
   final bool isPickup;
 
   final ValueChanged<TripEta>? onEta;
+
+  /// How much of the map's bottom edge the screen draws over — the height of the
+  /// sheet. The map is full-bleed, so its own controls have to be lifted clear of
+  /// this or they sit underneath it, visible on no phone and tappable on none.
+  final double bottomObstruction;
+
+  /// Where the screen's own controls at the top (nav row, status pill) end,
+  /// measured from the top of the map. The re-centre pill is kept below this.
+  final double topObstruction;
+
+  /// What the screen floats over the map: the nav row, the status pill and the
+  /// sheet, as children of the same full-screen box. They are drawn *under* the
+  /// re-centre pill, so on a short phone, where the sheet leaves no free map
+  /// between the top controls and itself, the pill (docked onto the sheet's top
+  /// edge) is still on top of the sheet and tappable.
+  final List<Widget> overlays;
 
   @override
   ConsumerState<TripTrackingMap> createState() => _TripTrackingMapState();
@@ -436,20 +475,42 @@ class _TripTrackingMapState extends ConsumerState<TripTrackingMap> {
             },
           ),
         ),
+        ...widget.overlays,
         if (!_following)
-          Positioned(
-            right: 14,
-            bottom: 14,
-            child: _RefitPill(onTap: () {
-              setState(() => _following = true);
-              final at = driverAt;
-              if (at != null) {
-                _fitBounds(at);
-              } else {
-                _controller?.animateCamera(
-                    CameraUpdate.newLatLngZoom(widget.destination, 14.5));
-              }
-            }),
+          Positioned.fill(
+            child: LayoutBuilder(
+              builder: (context, box) {
+                // Above the sheet, but never higher than the controls at the top
+                // of the screen: if the sheet leaves no room for it there, it
+                // docks onto the sheet's top edge instead of covering them.
+                final room = box.maxHeight -
+                    widget.topObstruction -
+                    TripTrackingMap.refitPillHeight(context) -
+                    8; // matches the strip in sheetCap
+                final bottom = math.max(
+                    0.0,
+                    math.min(
+                        widget.bottomObstruction + TripTrackingMap._pillGap, room));
+                return Stack(
+                  children: [
+                    Positioned(
+                      right: 14,
+                      bottom: bottom,
+                      child: _RefitPill(onTap: () {
+                        setState(() => _following = true);
+                        final at = driverAt;
+                        if (at != null) {
+                          _fitBounds(at);
+                        } else {
+                          _controller?.animateCamera(CameraUpdate.newLatLngZoom(
+                              widget.destination, 14.5));
+                        }
+                      }),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
       ],
     );

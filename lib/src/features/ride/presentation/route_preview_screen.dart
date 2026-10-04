@@ -164,8 +164,13 @@ class _RoutePreviewScreenState extends ConsumerState<RoutePreviewScreen> {
           Align(
             alignment: Alignment.bottomCenter,
             child: McSheet(
+              // The error's one way forward is pinned, not left at the end of a
+              // body that a long message could push out of reach.
+              footer: _error != null
+                  ? McButton('Try again', icon: 'clock', onTap: _load)
+                  : null,
               child: _error != null
-                  ? _RouteError(message: _error!, onRetry: _load)
+                  ? _RouteError(message: _error!)
                   : _RouteSummary(destination: dest, route: _route),
             ),
           ),
@@ -271,25 +276,14 @@ class _Metric extends StatelessWidget {
   }
 }
 
+/// The message only; "Try again" is the sheet's footer.
 class _RouteError extends StatelessWidget {
-  const _RouteError({required this.message, required this.onRetry});
+  const _RouteError({required this.message});
   final String message;
-  final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(message,
-            textAlign: TextAlign.center,
-            style: tw(FontWeight.w700, 14, Brand.sub)),
-        const SizedBox(height: 16),
-        McButton('Try again', icon: 'clock', onTap: onRetry),
-      ],
-    );
-  }
+  Widget build(BuildContext context) => Text(message,
+      textAlign: TextAlign.center, style: tw(FontWeight.w700, 14, Brand.sub));
 }
 
 class _Loading extends StatelessWidget {

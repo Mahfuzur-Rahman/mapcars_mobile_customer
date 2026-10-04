@@ -21,7 +21,19 @@ class CurrentLocationMap extends StatefulWidget {
     this.onLocated,
     this.onCameraSettled,
     this.zoom = 15.5,
+    this.bottomObstruction = 0,
+    this.topObstruction = 0,
   });
+
+  /// How much of the map's bottom edge the screen draws over — a sheet, say. The
+  /// map is full-bleed, so its own message and retry button are centred in the
+  /// part that's actually visible, not the whole screen, where a tall sheet
+  /// would sit right on top of them.
+  final double bottomObstruction;
+
+  /// How much of the map's top edge the screen draws controls over (a menu
+  /// button, say). The error message is kept below it.
+  final double topObstruction;
 
   /// Extra markers to draw on top of the current-location dot.
   final Set<Marker> markers;
@@ -173,11 +185,21 @@ class _CurrentLocationMapState extends State<CurrentLocationMap> {
           ),
         ),
         if (_loading)
-          const Positioned.fill(child: ColoredBox(color: Brand.bg, child: _Loading())),
+          Positioned.fill(
+            child: ColoredBox(
+              color: Brand.bg,
+              child: _Loading(
+                topObstruction: widget.topObstruction,
+                bottomObstruction: widget.bottomObstruction,
+              ),
+            ),
+          ),
         if (_error != null)
           Positioned.fill(
             child: _LocationError(
               message: _error!,
+              topObstruction: widget.topObstruction,
+              bottomObstruction: widget.bottomObstruction,
               opensSettings: _errorOpensSettings,
               onRetry: _resolveLocation,
               onOpenSettings: () => _locationService.openSettings(),
@@ -189,28 +211,35 @@ class _CurrentLocationMapState extends State<CurrentLocationMap> {
 }
 
 class _Loading extends StatelessWidget {
-  const _Loading();
+  const _Loading({required this.topObstruction, required this.bottomObstruction});
+
+  final double topObstruction;
+
+  final double bottomObstruction;
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 30,
-            height: 30,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              valueColor: AlwaysStoppedAnimation<Color>(Brand.blue),
+    return Center(
+      child: Padding(
+        padding: EdgeInsets.only(top: topObstruction, bottom: bottomObstruction),
+        child: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 30,
+              height: 30,
+              child: CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(Brand.blue),
+              ),
             ),
-          ),
-          SizedBox(height: 14),
-          Text(
-            'Finding your location…',
-            style: TextStyle(color: Brand.sub, fontWeight: FontWeight.w700, fontSize: 13),
-          ),
-        ],
+            SizedBox(height: 14),
+            Text(
+              'Finding your location…',
+              style: TextStyle(color: Brand.sub, fontWeight: FontWeight.w700, fontSize: 13),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -219,12 +248,16 @@ class _Loading extends StatelessWidget {
 class _LocationError extends StatelessWidget {
   const _LocationError({
     required this.message,
+    required this.topObstruction,
+    required this.bottomObstruction,
     required this.opensSettings,
     required this.onRetry,
     required this.onOpenSettings,
   });
 
   final String message;
+  final double topObstruction;
+  final double bottomObstruction;
   final bool opensSettings;
   final VoidCallback onRetry;
   final VoidCallback onOpenSettings;
@@ -233,29 +266,61 @@ class _LocationError extends StatelessWidget {
   Widget build(BuildContext context) {
     return ColoredBox(
       color: Brand.bg,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.location_off, size: 42, color: Brand.faint),
-              const SizedBox(height: 14),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Brand.sub, fontWeight: FontWeight.w700, fontSize: 14),
+      // Centred in the strip between the screen's controls and its sheet. When
+      // that strip is shorter than the block (a short phone, larger text) the
+      // block scrolls inside it rather than running under either.
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(32, topObstruction, 32, bottomObstruction),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            // The icon is the first thing to go when the strip is short (a
+            // large-text phone with the sheet taking the lower half): the
+            // message and the button are what the customer needs. Measured, not
+            // guessed, so a short message on a roomy screen keeps its icon.
+            final scaler = MediaQuery.textScalerOf(context);
+            final messageHeight = (TextPainter(
+              text: TextSpan(text: message, style: _messageStyle),
+              textDirection: TextDirection.ltr,
+              textScaler: scaler,
+            )..layout(maxWidth: box.maxWidth))
+                .height;
+            final buttonHeight = math.max(40.0, scaler.scale(14) * 1.25 + 26);
+            final withIcon = 42 + 14 + messageHeight + 18 + buttonHeight;
+            final showIcon = withIcon <= box.maxHeight;
+
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: box.maxHeight),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (showIcon) ...[
+                        const Icon(Icons.location_off, size: 42, color: Brand.faint),
+                        const SizedBox(height: 14),
+                      ],
+                      Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: _messageStyle,
+                      ),
+                      const SizedBox(height: 18),
+                      FilledButton(
+                        onPressed: opensSettings ? onOpenSettings : onRetry,
+                        style: FilledButton.styleFrom(backgroundColor: Brand.blue),
+                        child: Text(opensSettings ? 'Open settings' : 'Try again'),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 18),
-              FilledButton(
-                onPressed: opensSettings ? onOpenSettings : onRetry,
-                style: FilledButton.styleFrom(backgroundColor: Brand.blue),
-                child: Text(opensSettings ? 'Open settings' : 'Try again'),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
   }
+
+  static const _messageStyle =
+      TextStyle(color: Brand.sub, fontWeight: FontWeight.w700, fontSize: 14);
 }
