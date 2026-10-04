@@ -508,6 +508,13 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
           // so the button rides on the card's top edge however tall the card gets
           // (larger text, a nav-bar inset) instead of sitting at a fixed height
           // that the card can grow over.
+          //
+          // None of it while the search field has focus: with the keyboard up the
+          // card rides just above it, over the lower half of the suggestion list
+          // (every suggestion was covered), and its only action would throw the
+          // typed search away. It returns when focus leaves — by picking a
+          // suggestion, dragging the map or dismissing the keyboard.
+          if (!_searchFocus.hasFocus)
           Positioned(
             bottom: 0,
             left: 0,
@@ -516,11 +523,7 @@ class _PickOnMapScreenState extends ConsumerState<PickOnMapScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Not while the search field has focus: with the keyboard up the
-                // search bar and this button share a corner, and the button sat
-                // over the bar's clear (x) button, so tapping x re-centred the map.
-                if (!_searchFocus.hasFocus)
-                  Align(
+                Align(
                     alignment: Alignment.centerRight,
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(0, 0, 16, 14),

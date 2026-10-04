@@ -7,15 +7,18 @@
 // the form read the keyboard height from the page underneath instead of from
 // the sheet.
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mapcars_mobile/src/core/network/network_diagnosis.dart';
 import 'package:mapcars_mobile/src/core/theme/app_theme.dart';
 import 'package:mapcars_mobile/src/core/widgets/mc.dart';
 import 'package:mapcars_mobile/src/core/widgets/support_sheets.dart';
 import 'package:mapcars_mobile/src/features/account/models/saved_place.dart';
 import 'package:mapcars_mobile/src/features/account/presentation/saved_places_screen.dart';
 import 'package:mapcars_mobile/src/features/account/providers/saved_places_provider.dart';
+import 'package:mapcars_mobile/src/features/account/services/saved_places_service.dart';
 
 import 'support/reachability.dart';
 
@@ -180,7 +183,91 @@ void main() {
       setKeyboard(tester, open: true);
       await tester.pumpAndSettle();
 
-      expectReachableWithoutScrolling(tester, find.text('Save place'));
+      expectReachableWithoutScrolling(
+          tester, find.widgetWithText(McButton, 'Save place'));
     });
+  }
+
+  // A failed save can answer with the long "can't reach Mapcars" message and its
+  // "Ref:" diagnosis line. That rode in the footer as raw red text with no cap:
+  // with the keyboard up at 1.3 it left 8dp of form, and at 2.0 it overflowed and
+  // pushed Save off the screen.
+  group('saved-place form, failed save with the long unreachable message', () {
+    for (final scale in [1.0, 1.3, 2.0]) {
+      testWidgets('keyboard up, text x$scale', (tester) async {
+        await loadAppFonts();
+        configureSmallPhone(tester, textScale: scale);
+        await tester.pumpWidget(ProviderScope(
+          overrides: [
+            // A list, not the empty state: with the keyboard up that page
+            // behind the sheet overflows at x2.0 on its own, which this test is
+            // not about.
+            savedPlacesProvider.overrideWith((ref) async => const [
+                  SavedPlace(
+                      id: '1', label: 'Home', address: '1 High St', lat: 51.5, lng: -0.1),
+                ]),
+            savedPlacesServiceProvider.overrideWithValue(_Unreachable()),
+          ],
+          child: MaterialApp(
+              theme: AppTheme.light, home: const SavedPlacesScreen()),
+        ));
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+            find.byWidgetPredicate((w) => w is Ico && w.name == 'plus'));
+        await tester.pumpAndSettle();
+        final fields = find.byType(TextField);
+        await tester.enterText(fields.at(0), 'Home');
+        await tester.enterText(fields.at(1), '1 High St');
+        await tester.enterText(fields.at(2), '51.5');
+        await tester.enterText(fields.at(3), '-0.1');
+        await tester.showKeyboard(fields.first);
+        setKeyboard(tester, open: true);
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.widgetWithText(McButton, 'Save place'));
+        await tester.pumpAndSettle();
+
+        // The real message, "Ref:" line and all.
+        expect(find.textContaining('Ref: api.example.test'), findsOneWidget);
+        expect(find.byType(McErrorBanner), findsOneWidget);
+        expect(tester.takeException(), isNull, reason: 'no RenderFlex overflow');
+        expectReachableWithoutScrolling(
+            tester, find.widgetWithText(McButton, 'Save place'));
+
+        if (scale <= 1.3) {
+          final form = tester.getRect(find.descendant(
+              of: find.byType(McSheet),
+              matching: find.byType(SingleChildScrollView)));
+          expect(form.height, greaterThanOrEqualTo(52),
+              reason: 'the form is squeezed to ${form.height}dp above the footer');
+        }
+      });
+    }
+  });
+}
+
+/// A saved-places service whose save fails because the API was never reached,
+/// with the diagnosis the API client's interceptor attaches.
+class _Unreachable extends SavedPlacesService {
+  _Unreachable() : super(Dio());
+
+  @override
+  Future<SavedPlace> create({
+    required String label,
+    required String address,
+    required double lat,
+    required double lng,
+  }) {
+    final options = RequestOptions(path: '/api/v1/saved-places');
+    options.extra[networkDiagnosisKey] = const NetworkDiagnosis(
+      host: 'api.example.test',
+      dns: 'fail',
+      tcp: 'skipped',
+      internet: 'ok',
+      network: 'wifi',
+    );
+    throw DioException.connectionError(
+        requestOptions: options, reason: 'unreachable');
   }
 }

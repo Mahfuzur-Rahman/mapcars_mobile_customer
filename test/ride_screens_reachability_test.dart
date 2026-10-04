@@ -201,6 +201,20 @@ class _FakeMaps extends GoogleMapsService {
       lng: -0.1586);
 }
 
+/// Five suggestions for whatever is typed.
+class _SuggestingMaps extends _FakeMaps {
+  @override
+  Future<List<PlacePrediction>> autocomplete(String query,
+          {LatLng? origin}) async =>
+      [
+        for (var i = 0; i < 5; i++)
+          PlacePrediction(
+              placeId: 'p$i',
+              primaryText: 'Suggestion $i',
+              secondaryText: 'London, UK'),
+      ];
+}
+
 /// The whole button, not just its label: a button half under the nav bar is
 /// what the customer actually sees, even when its text happens to clear it.
 Finder _button(String label, {bool contains = false}) => find.ancestor(
@@ -219,6 +233,9 @@ Future<FakeGoogleMapsPlatform> _pump(
   double textScale = 1.0,
   Future<RideQuote> Function()? quote,
   Size? size,
+  GoogleMapsService? mapsService,
+  PaymentSettings payment = const PaymentSettings(
+      cashEnabled: true, cardEnabled: true, defaultMethod: 'card'),
 }) async {
   await loadAppFonts();
   configureSmallPhone(tester, textScale: textScale);
@@ -231,7 +248,7 @@ Future<FakeGoogleMapsPlatform> _pump(
 
   final container = ProviderContainer(overrides: [
     rideRepositoryProvider.overrideWithValue(_FakeRepo()),
-    googleMapsServiceProvider.overrideWithValue(_FakeMaps()),
+    googleMapsServiceProvider.overrideWithValue(mapsService ?? _FakeMaps()),
     nearbyDriversServiceProvider
         .overrideWithValue(NearbyDriversService(Dio())),
     sharedPreferencesProvider.overrideWithValue(prefs),
@@ -242,8 +259,7 @@ Future<FakeGoogleMapsPlatform> _pump(
         (ref) => SearchHistoryNotifier(SearchHistoryService(prefs), null)),
     rideQuoteProvider
         .overrideWith((ref) => quote != null ? quote() : Future.value(_quote)),
-    paymentSettingsProvider.overrideWith((ref) async => const PaymentSettings(
-        cashEnabled: true, cardEnabled: true, defaultMethod: 'card')),
+    paymentSettingsProvider.overrideWith((ref) async => payment),
   ]);
   _container = container;
   addTearDown(() => _container?.dispose());
@@ -408,18 +424,80 @@ void main() {
     });
   });
 
-  testWidgets('pick on map: stays reachable with the keyboard up',
+  group('confirm: the fare Total', () {
+    // The customer commits to this number, so it sits beside the button, in the
+    // pinned footer — not at the end of the scrolling body, where on a small
+    // phone it was cut in half (x1.0) or below the fold (x1.3).
+    const cashOnly = PaymentSettings(
+        cashEnabled: true, cardEnabled: false, defaultMethod: 'cash');
+    for (final scale in [1.0, 1.3]) {
+      for (final cashOnlyVariant in [false, true]) {
+        testWidgets(
+            'is fully on screen beside the button, '
+            '${cashOnlyVariant ? 'cash only' : 'cash + card'} (text x$scale)',
+            (tester) async {
+          await _pump(tester, const ConfirmScreen(),
+              textScale: scale,
+              payment: cashOnlyVariant
+                  ? cashOnly
+                  : const PaymentSettings(
+                      cashEnabled: true,
+                      cardEnabled: true,
+                      defaultMethod: 'card'));
+
+          final label = find.text('Total');
+          final row = find.ancestor(of: label, matching: find.byType(Row)).first;
+          final amount =
+              find.descendant(of: row, matching: find.byType(Text)).at(1);
+          // Not inside the scrolling body.
+          expect(find.descendant(of: find.byType(Scrollable), matching: label),
+              findsNothing);
+          expectReachableWithoutScrolling(tester, label);
+          expectReachableWithoutScrolling(tester, amount);
+          expect(tester.widget<Text>(amount).data, '£34.50');
+          // And above the button it sits with.
+          expect(tester.getRect(row).bottom,
+              lessThanOrEqualTo(tester.getRect(_button('Confirm MAP CARS')).top));
+          expectReachableWithoutScrolling(tester, _button('Confirm MAP CARS'));
+          await _unmount(tester);
+        });
+      }
+    }
+  });
+
+  testWidgets(
+      'pick on map: while typing, every suggestion is tappable (the card gives way)',
       (tester) async {
+    // With the keyboard up the suggestion list spans y 110-342 and the location
+    // card started at y 129: none of the suggestions could be tapped, and the only
+    // action left ("Confirm this location") threw the typed search away.
     await _pump(
       tester,
       const PickOnMapScreen(initialPosition: LatLng(51.5238, -0.1586)),
+      mapsService: _SuggestingMaps(),
     );
     await tester.showKeyboard(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'baker');
     setKeyboard(tester, open: true);
+    await tester.pump(const Duration(milliseconds: 400)); // search debounce
     await tester.pumpAndSettle();
 
-    expectReachableWithoutScrolling(
-        tester, _button('Confirm this location'));
+    // The list is capped (232dp) and scrolls, so the fifth row sits past its
+    // end; every row that is on screen must take the tap.
+    final rows = find.textContaining('Suggestion ');
+    final shown = rows.evaluate().length;
+    expect(shown, greaterThanOrEqualTo(4));
+    for (var i = 0; i < shown; i++) {
+      expect(rows.at(i).hitTestable(), findsOneWidget,
+          reason: 'suggestion $i is covered by something else');
+    }
+    expect(find.text('Confirm this location'), findsNothing);
+
+    // Focus leaves the search field: the card is back and reachable.
+    FocusManager.instance.primaryFocus?.unfocus();
+    setKeyboard(tester, open: false);
+    await tester.pumpAndSettle();
+    expectReachableWithoutScrolling(tester, _button('Confirm this location'));
     await _unmount(tester);
   });
 
@@ -485,15 +563,28 @@ void main() {
       });
     }
 
-    testWidgets('Safety, Share trip and Message driver are on screen',
-        (tester) async {
-      await _pump(tester, InProgressScreen(trip: _trip('InProgress')));
+    // At 1.3 the old fixed 360dp cap cut "Message driver" off (534-588 against a
+    // body that ended at 580); the sheet is now capped by the map strip alone.
+    for (final scale in [1.0, 1.3]) {
+      testWidgets(
+          'Safety, Share trip and Message driver are on screen (text x$scale)',
+          (tester) async {
+        await _pump(tester, InProgressScreen(trip: _trip('InProgress')),
+            textScale: scale);
 
-      expectReachableWithoutScrolling(tester, _button('Safety'));
-      expectReachableWithoutScrolling(tester, _button('Share trip'));
-      expectReachableWithoutScrolling(tester, _button('Message driver'));
-      await _unmount(tester);
-    });
+        expectReachableWithoutScrolling(tester, _button('Safety'));
+        expectReachableWithoutScrolling(tester, _button('Share trip'));
+        expectReachableWithoutScrolling(tester, _button('Message driver'));
+        // Fully inside the sheet's body, not half clipped by the end of it.
+        final body = tester.getRect(find
+            .descendant(of: find.byType(McSheet), matching: find.byType(Scrollable))
+            .first);
+        expect(tester.getRect(_button('Message driver')).bottom,
+            lessThanOrEqualTo(body.bottom + 0.5),
+            reason: '"Message driver" is clipped by the sheet body ($body)');
+        await _unmount(tester);
+      });
+    }
   });
 
   group('tracking PIN', () {

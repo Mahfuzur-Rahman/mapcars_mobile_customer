@@ -10,15 +10,29 @@
 // Usage:
 //
 //   await pumpOnSmallPhone(tester, const MyScreen(), textScale: 1.3);
-//   expectReachableWithoutScrolling(tester, find.text('Save'));
+//   expectReachableWithoutScrolling(
+//       tester, find.widgetWithText(McButton, 'Save'));
 //
 // Screens that need their own app shell (a ProviderScope, a router) load the
 // real font, call [configureSmallPhone] and pump themselves — with
 // `theme: AppTheme.light`, or the font never applies:
 //
 //   await loadAppFonts();
-//   configureSmallPhone(tester, keyboard: true);
+//   configureSmallPhone(tester);
 //   await tester.pumpWidget(ProviderScope(child: MaterialApp(home: ...)));
+//
+// The keyboard is opened after the screen is up, the way it happens on a
+// device: focus a field first, then report the insets —
+//
+//   await tester.showKeyboard(find.byType(TextField).first);
+//   setKeyboard(tester, open: true);
+//   await tester.pumpAndSettle();
+//
+// Setting insets without a focused field is the weak pattern: the screen
+// reacts to a keyboard no field asked for, and a test can pass while the real
+// order of events (a field takes focus, then the keyboard arrives) is broken.
+// Prefer finding the whole button (`McButton`) over its label — a label can
+// clear the bar while the button is half under it.
 
 import 'dart:math' as math;
 
@@ -39,22 +53,21 @@ const double kKeyboardInset = 300;
 /// Puts the test view into the small-phone configuration for the rest of the
 /// test (reset automatically on tear-down).
 ///
-/// The nav-bar inset is set on both `padding` and `viewPadding`. With
-/// [keyboard] up the view reports what Android does under `adjustResize`:
-/// `viewInsets.bottom` is the keyboard, `padding.bottom` drops to 0 (the
-/// keyboard covers the nav bar), and `viewPadding.bottom` stays 48 because the
-/// bar is still physically there.
+/// The nav-bar inset is set on both `padding` and `viewPadding`, with the
+/// keyboard closed. To open it, see [setKeyboard]: with it up the view reports
+/// what Android does under `adjustResize` — `viewInsets.bottom` is the
+/// keyboard, `padding.bottom` drops to 0 (the keyboard covers the nav bar), and
+/// `viewPadding.bottom` stays 48 because the bar is still physically there.
 void configureSmallPhone(
   WidgetTester tester, {
   double textScale = 1.0,
-  bool keyboard = false,
 }) {
   final view = tester.view
     ..devicePixelRatio = 1.0
     ..physicalSize = kSmallPhone
     ..viewPadding = const FakeViewPadding(bottom: kNavBarInset)
-    ..padding = FakeViewPadding(bottom: keyboard ? 0 : kNavBarInset)
-    ..viewInsets = FakeViewPadding(bottom: keyboard ? kKeyboardInset : 0);
+    ..padding = const FakeViewPadding(bottom: kNavBarInset)
+    ..viewInsets = FakeViewPadding.zero;
   tester.platformDispatcher.textScaleFactorTestValue = textScale;
   addTearDown(view.reset);
   addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
@@ -62,6 +75,8 @@ void configureSmallPhone(
 
 /// Opens (or closes) the keyboard on an already-configured small phone, the way
 /// it happens on a device: after the screen is up, when a field takes focus.
+/// Focus a field first (`tester.showKeyboard(field)`), then call this — insets
+/// with no focused field are not what a device reports.
 void setKeyboard(WidgetTester tester, {required bool open}) {
   tester.view
     ..padding = FakeViewPadding(bottom: open ? 0 : kNavBarInset)
@@ -77,10 +92,9 @@ Future<void> pumpOnSmallPhone(
   WidgetTester tester,
   Widget home, {
   double textScale = 1.0,
-  bool keyboard = false,
 }) async {
   await loadAppFonts();
-  configureSmallPhone(tester, textScale: textScale, keyboard: keyboard);
+  configureSmallPhone(tester, textScale: textScale);
   await tester.pumpWidget(MaterialApp(
     theme: AppTheme.light,
     debugShowCheckedModeBanner: false,

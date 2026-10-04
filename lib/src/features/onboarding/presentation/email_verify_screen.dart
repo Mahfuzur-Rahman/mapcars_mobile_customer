@@ -160,18 +160,6 @@ class _EmailVerifyScreenState extends ConsumerState<EmailVerifyScreen> {
                           style: tw(FontWeight.w700, 14,
                               expired ? Colors.red : Brand.sub),
                         ),
-                        const Spacer(),
-                        GestureDetector(
-                          onTap: (expired && !auth.isLoading) ? _resend : null,
-                          child: Text(
-                            'Resend code',
-                            style: tw(
-                              FontWeight.w800,
-                              14,
-                              expired ? Brand.blue : Brand.faint,
-                            ),
-                          ),
-                        ),
                       ],
                     ),
                   ],
@@ -182,11 +170,21 @@ class _EmailVerifyScreenState extends ConsumerState<EmailVerifyScreen> {
               // Errors sit with the button, so they are on screen after tapping it.
               notice: auth.error == null ? null : McErrorBanner(auth.error!),
               children: [
-                McButton(
-                  auth.isLoading ? 'Verifying…' : 'Verify',
-                  icon: auth.isLoading ? null : 'check',
-                  onTap: (auth.isLoading || expired) ? null : _verify,
-                ),
+                // Once the code has expired "Verify" can do nothing, and the only
+                // live action is a new code — so that takes the pinned slot,
+                // where the keyboard can't cover it.
+                if (expired)
+                  McButton(
+                    auth.isLoading ? 'Sending…' : 'Resend code',
+                    icon: auth.isLoading ? null : 'mail',
+                    onTap: auth.isLoading ? null : _resend,
+                  )
+                else
+                  McButton(
+                    auth.isLoading ? 'Verifying…' : 'Verify',
+                    icon: auth.isLoading ? null : 'check',
+                    onTap: auth.isLoading ? null : _verify,
+                  ),
               ],
             ),
           ],

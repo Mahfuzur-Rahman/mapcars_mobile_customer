@@ -653,7 +653,6 @@ class McActionBar extends StatelessWidget {
   const McActionBar({
     super.key,
     required this.children,
-    this.color = Brand.bg,
     this.notice,
   });
 
@@ -661,35 +660,14 @@ class McActionBar extends StatelessWidget {
   /// a small screen, so it is not allowed.
   final List<Widget> children;
 
-  /// The page's background colour, so the bar reads as the foot of the page.
-  final Color color;
-
   /// A message about the buttons below it — a failed submit's error. It sits
   /// inside the bar, so it is on screen whenever the button is: an error left
   /// at the end of the scroll body lands below the visible area (or under the
   /// keyboard) when the pinned button is the thing the customer just tapped.
   ///
-  /// Capped (see [noticeMaxHeight]) and scrolls inside itself when longer, so a
-  /// long message can never push the buttons off the screen. The text is never
-  /// truncated: the "Ref:" line in an error is what support asks for.
+  /// Shown through [McNotice], so it is capped and scrolls inside itself when
+  /// longer — a long message can never push the buttons off the screen.
   final Widget? notice;
-
-  /// The tallest the [notice] may grow: about three lines of body text at the
-  /// current text scale (plus an error banner's padding), or a quarter of what
-  /// is visible above the keyboard — whichever is smaller.
-  ///
-  /// Read through the MediaQuery aspects (not View.of, which never
-  /// notifies), so a notice already showing is re-capped when the keyboard
-  /// opens. Inside a resizing Scaffold the body's MediaQuery has the keyboard
-  /// already removed, so there the quarter is of the full screen and the
-  /// three-line limit is what binds.
-  static double noticeMaxHeight(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-    final visible = size.height - keyboard;
-    final threeLines = MediaQuery.textScalerOf(context).scale(13.5) * 1.45 * 3 + 24;
-    return math.min(threeLines, visible * 0.25);
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -700,27 +678,17 @@ class McActionBar extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: EdgeInsets.fromLTRB(22, 12, 22, 12 + MediaQuery.paddingOf(context).bottom),
-      decoration: BoxDecoration(
-        color: color,
+      decoration: const BoxDecoration(
+        color: Brand.bg,
         // The same hairline as the drawer footer and the tab bar.
-        border: const Border(top: BorderSide(color: Brand.fill)),
+        border: Border(top: BorderSide(color: Brand.fill)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (notice != null) ...[
-            // As tall as the message up to the cap, then it scrolls. shrinkWrap sizes
-            // the viewport to its content (a plain ListView would fill the cap).
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: noticeMaxHeight(context)),
-              child: ListView(
-                shrinkWrap: true,
-                primary: false,
-                padding: EdgeInsets.zero,
-                children: [notice!],
-              ),
-            ),
+            McNotice(notice!),
             const SizedBox(height: 10),
           ],
           for (var i = 0; i < children.length; i++) ...[
@@ -731,6 +699,49 @@ class McActionBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A message that sits beside a pinned button — a failed submit's error — in
+/// [McActionBar.notice] or an [McSheet]'s `footer`. It is the one place the cap
+/// lives, so a long message can never push the button off the screen.
+///
+/// As tall as the message up to [maxHeight], then it scrolls inside itself. The
+/// text is never truncated: the "Ref:" line in an error is what support asks for.
+class McNotice extends StatelessWidget {
+  const McNotice(this.child, {super.key});
+
+  /// Usually an [McErrorBanner].
+  final Widget child;
+
+  /// The tallest a notice may grow: about three lines of body text at the
+  /// current text scale (plus an error banner's padding), or a quarter of what
+  /// is visible above the keyboard — whichever is smaller.
+  ///
+  /// Read through the MediaQuery aspects (not View.of, which never
+  /// notifies), so a notice already showing is re-capped when the keyboard
+  /// opens. Inside a resizing Scaffold the body's MediaQuery has the keyboard
+  /// already removed, so there the quarter is of the full screen and the
+  /// three-line limit is what binds.
+  static double maxHeight(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final keyboard = MediaQuery.viewInsetsOf(context).bottom;
+    final visible = size.height - keyboard;
+    final threeLines = MediaQuery.textScalerOf(context).scale(13.5) * 1.45 * 3 + 24;
+    return math.min(threeLines, visible * 0.25);
+  }
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: maxHeight(context)),
+        // shrinkWrap sizes the viewport to its content (a plain ListView would
+        // fill the cap).
+        child: ListView(
+          shrinkWrap: true,
+          primary: false,
+          padding: EdgeInsets.zero,
+          children: [child],
+        ),
+      );
 }
 
 /// Bottom sheet offering "take a selfie" vs "choose from gallery" — the shared

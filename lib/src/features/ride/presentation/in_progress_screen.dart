@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -156,8 +154,7 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
                     },
                     child: McSheet(
                       // Capped so the strip above it still holds the re-centre pill.
-                      maxHeight: math.min(
-                          360, TripTrackingMap.sheetCap(context, _topBottom)),
+                      maxHeight: TripTrackingMap.sheetCap(context, _topBottom),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,

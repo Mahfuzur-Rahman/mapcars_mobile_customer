@@ -379,6 +379,36 @@ void main() {
           _noExceptions(tester);
           await tester.pumpWidget(const SizedBox());
         });
+
+        testWidgets(
+            'email verify: while the code is live, Verify is the pinned action',
+            (tester) async {
+          await _pump(tester, const EmailVerifyScreen(),
+              textScale: scale, auth: _signedUpEmail);
+          await _openKeyboard(tester);
+          expectReachableWithoutScrolling(tester, _button('Verify'));
+          expect(_button('Resend code'), findsNothing);
+          _noExceptions(tester);
+          await tester.pumpWidget(const SizedBox());
+        });
+
+        testWidgets(
+            'email verify: once the code expires, "Resend code" is the pinned '
+            'action, reachable with the keyboard open', (tester) async {
+          await _pump(tester, const EmailVerifyScreen(),
+              textScale: scale, auth: _signedUpEmail);
+          await _openKeyboard(tester);
+          await tester.pump(const Duration(seconds: 181));
+          await tester.pump();
+          expect(find.text('Code expired'), findsOneWidget);
+          expectReachableWithoutScrolling(tester, _button('Resend code'));
+          // The dead "Verify" no longer sits there looking tappable.
+          expect(_button('Verify'), findsNothing);
+          // The only "Resend code" on screen is the pinned one.
+          expect(find.text('Resend code'), findsOneWidget);
+          _noExceptions(tester);
+          await tester.pumpWidget(const SizedBox());
+        });
       });
 
       // ── completed / rate / receipt ────────────────────────────────────────

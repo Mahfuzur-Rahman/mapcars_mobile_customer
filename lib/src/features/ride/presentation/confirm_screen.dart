@@ -99,11 +99,30 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
               // Pinned: this is the screen's whole point, and with the tip and
               // payment choices above it the body outgrows a small phone (or
               // larger text) — it scrolls, the button doesn't.
-              footer: McButton(
-                _submitting ? 'Booking…' : 'Confirm MAP CARS',
-                icon: 'check',
-                kind: BtnKind.grad,
-                onTap: canConfirm ? _confirm : null,
+              //
+              // The Total is pinned with it: the customer is committing to that
+              // number, so it must be on screen beside the button, not at the end
+              // of a body that a small phone scrolls out from under it.
+              footer: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Total', style: tw(FontWeight.w800, 15)),
+                      Text(option == null ? '—' : formatGbp(totalPence),
+                          style: tw(FontWeight.w900, 22)),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  McButton(
+                    _submitting ? 'Booking…' : 'Confirm MAP CARS',
+                    icon: 'check',
+                    kind: BtnKind.grad,
+                    onTap: canConfirm ? _confirm : null,
+                  ),
+                ],
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -227,15 +246,6 @@ class _ConfirmScreenState extends ConsumerState<ConfirmScreen> {
                         ],
                       ],
                     ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Total', style: tw(FontWeight.w800, 15)),
-                      Text(option == null ? '—' : formatGbp(totalPence),
-                          style: tw(FontWeight.w900, 22)),
-                    ],
-                  ),
                 ],
               ),
             ),

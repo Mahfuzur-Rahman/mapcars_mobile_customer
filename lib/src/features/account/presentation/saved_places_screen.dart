@@ -267,7 +267,9 @@ class _SavedPlaceFormState extends ConsumerState<_SavedPlaceForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_error != null) ...[
-            Text(_error!, style: tw(FontWeight.w600, 13, Colors.red)),
+            // Capped, and scrolls inside itself when longer: a long "can't reach
+            // Mapcars … Ref:" message must not push Save off the screen.
+            McNotice(McErrorBanner(_error!)),
             const SizedBox(height: 12),
           ],
           McButton(
