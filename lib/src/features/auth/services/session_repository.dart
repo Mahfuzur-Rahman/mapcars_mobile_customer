@@ -7,55 +7,77 @@ import '../models/auth_session.dart';
 /// Persists the authenticated customer session to secure storage so the user
 /// stays signed in across app restarts.
 class SessionRepository {
-  SessionRepository(this._store);
+  /// [previous] is the store older builds wrote with (defaults to [store]).
+  SessionRepository(FlutterSecureStorage store, [FlutterSecureStorage? previous])
+      : _store = store,
+        _previous = previous ?? store;
 
   final FlutterSecureStorage _store;
-  static const _key = 'customer_session_v1';
+  final FlutterSecureStorage _previous;
 
-  /// What this key was called before the Rider -> Customer rename.
-  ///
-  /// Renaming a storage key silently signs out everyone who already has a
-  /// session, and "I opened the app and it had forgotten me" is a bad first
-  /// impression of a release whose entire user-visible change is a word. The
-  /// migration below costs ten lines and removes that entirely.
-  ///
-  /// Delete once no build older than the rename is installed anywhere.
+  /// v2: written with the `first_unlock` keychain options (see secure_store).
+  /// It's a new key rather than a rewrite of the old one, so deleting the old
+  /// copy can never take the new one with it, whatever the keychain query
+  /// matches on.
+  static const _key = 'customer_session_v2';
+
+  /// Written by builds before 2026-10, under the default keychain options.
+  static const _previousKey = 'customer_session_v1';
+
+  /// What the key was called before the Rider -> Customer rename. Renaming a
+  /// storage key silently signs out everyone who already has a session, so
+  /// both older keys are migrated rather than abandoned.
   static const _legacyKey = 'rider_session_v1';
 
   Future<void> save(AuthSession session) =>
       _store.write(key: _key, value: session.encode());
 
   Future<AuthSession?> load() async {
-    final raw = await _store.read(key: _key) ?? await _migrateLegacy();
+    final String? raw;
+    try {
+      raw = await _store.read(key: _key) ?? await _migrate();
+    } catch (_) {
+      // Unreadable storage. A backup restored onto another phone can't decrypt
+      // Keystore-bound data, and the keychain can refuse a read while locked.
+      // Start signed out rather than hang the splash. Nothing is deleted, so
+      // a locked-phone launch still finds the session next time.
+      return null;
+    }
     if (raw == null) return null;
     try {
       return AuthSession.decode(raw);
     } catch (_) {
-      // Corrupt or schema-changed payload — drop it rather than crash on boot.
+      // Corrupt or schema-changed payload: drop it rather than crash on boot.
       await clear();
       return null;
     }
   }
 
-  /// Moves a pre-rename session onto the current key, returning what it found.
-  /// Runs at most once per install: the old entry is deleted as soon as it has
-  /// been copied across.
-  Future<String?> _migrateLegacy() async {
-    final legacy = await _store.read(key: _legacyKey);
-    if (legacy == null) return null;
-    await _store.write(key: _key, value: legacy);
-    await _store.delete(key: _legacyKey);
-    return legacy;
+  /// Carries a session written by an older build onto the current key and
+  /// options, then deletes the old copy. Runs at most once per install.
+  Future<String?> _migrate() async {
+    for (final key in const [_previousKey, _legacyKey]) {
+      final raw = await _previous.read(key: key);
+      if (raw == null) continue;
+      await _store.write(key: _key, value: raw);
+      await _previous.delete(key: key);
+      return raw;
+    }
+    return null;
   }
 
   Future<void> clear() async {
     await _store.delete(key: _key);
-    // Retire the pre-rename entry too, or signing out would leave behind a
-    // session the migration above would cheerfully restore on next launch.
-    await _store.delete(key: _legacyKey);
+    // Retire the older copies too, or signing out would leave behind a session
+    // the migration above would cheerfully restore on next launch.
+    await _previous.delete(key: _previousKey);
+    await _previous.delete(key: _legacyKey);
   }
 }
 
 final sessionRepositoryProvider = Provider<SessionRepository>(
-  (ref) => SessionRepository(ref.watch(secureStoreProvider)),
+  (ref) => SessionRepository(
+    ref.watch(secureStoreProvider),
+    ref.watch(legacySecureStoreProvider),
+  ),
 );
