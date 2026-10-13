@@ -211,7 +211,7 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
       'tripUpdated': _onTripUpdated,
       'driverLocation': _onDriverLocation,
       'messageReceived': _onMessageReceived,
-    });
+    }, currentToken: () => _ref.read(authTokenProvider));
     // joinTrip (not invoke) so the membership is replayed after a reconnect —
     // SignalR groups are per-connection-id and a reconnect mints a new one.
     await _rt.joinTrip(tripId);
