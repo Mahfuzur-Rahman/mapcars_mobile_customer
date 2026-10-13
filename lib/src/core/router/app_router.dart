@@ -7,6 +7,7 @@ import '../config/app_config.dart';
 import '../network/api_client.dart';
 import '../network/error_reporter.dart';
 import '../widgets/screen_stepper.dart';
+import '../../features/auth/providers/auth_notifier.dart';
 import '../../features/account/presentation/change_password_screen.dart';
 import '../../features/account/presentation/edit_profile_screen.dart';
 import '../../features/account/presentation/history_screen.dart';
@@ -92,6 +93,34 @@ const _publicRoutes = {
   '/screens',
 };
 
+/// Sign-in screens a signed-in customer should never sit on.
+const _authFunnel = {'/phone', '/otp', '/email-login', '/email-signup', '/verify-email'};
+
+/// The auth part of the router's redirect, as a pure function so it can be
+/// tested without a widget tree.
+///
+/// The router, not the sign-in screen, decides where a fresh sign-in lands:
+/// the token change re-runs this redirect before the screen's own `context.go`
+/// can, and the screen is gone by then. That used to send brand-new phone
+/// sign-ups to /home without a name.
+@visibleForTesting
+String? authRedirect({
+  required String path,
+  required bool loggedIn,
+  required bool profileComplete,
+  required bool isDev,
+}) {
+  if (!loggedIn && !_publicRoutes.contains(path)) return '/intro';
+  // The screen index is a prototype tool that links straight into signed-in
+  // screens. It only exists in local dev builds.
+  if (path == '/screens' && !isDev) return loggedIn ? '/home' : '/intro';
+  if (loggedIn && _authFunnel.contains(path)) {
+    return profileComplete ? '/home' : '/profile-setup';
+  }
+  return null;
+}
+
+
 /// Bridges [authTokenProvider] changes to go_router so guards re-evaluate the
 /// moment the customer signs in or the session is torn down (e.g. on a 401).
 class _AuthRefresh extends ChangeNotifier {
@@ -126,14 +155,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       // for the prototype walk-through, which meant /home (and every other
       // signed-in screen) was reachable without a session — including straight
       // from the dev screen index.
-      if (!loggedIn && !_publicRoutes.contains(path)) return '/intro';
-
-      // The screen index is a prototype tool that links straight into signed-in
-      // screens — it only exists in local dev builds.
-      if (path == '/screens' && !AppConfig.isDev) return loggedIn ? '/home' : '/intro';
-      const authFunnel = {'/phone', '/otp', '/email-login', '/email-signup', '/verify-email'};
-      if (loggedIn && authFunnel.contains(path)) return '/home';
-      return null;
+      return authRedirect(
+        path: path,
+        loggedIn: loggedIn,
+        profileComplete: ref.read(authNotifierProvider).isProfileComplete,
+        isDev: AppConfig.isDev,
+      );
     },
     routes: [
     ShellRoute(
