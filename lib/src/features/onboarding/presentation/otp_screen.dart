@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/router/nav.dart';
+import '../../../core/sms/sms_code_listener.dart';
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
 import 'widgets/resend_code_button.dart';
@@ -21,6 +22,34 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   /// Bumped to rebuild [OtpInput] empty: after a wrong code, and after a resend.
   int _attempt = 0;
 
+  final _sms = SmsCodeListener();
+
+  /// A code read from the SMS, shown in the boxes before it is verified.
+  String? _prefill;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenForSms();
+  }
+
+  @override
+  void dispose() {
+    _sms.cancel();
+    super.dispose();
+  }
+
+  Future<void> _listenForSms() async {
+    final code = await _sms.next();
+    if (code == null || !mounted) return;
+    setState(() {
+      _attempt++;
+      _prefill = code;
+      _code = code;
+    });
+    await _verify();
+  }
+
   Future<void> _verify() async {
     if (_code.length < 6) return;
     final ok = await ref.read(authNotifierProvider.notifier).verifyPhoneOtp(_code);
@@ -28,6 +57,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     if (!ok) {
       setState(() {
         _attempt++;
+        _prefill = null;
         _code = '';
       });
       return;
@@ -46,8 +76,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     if (!mounted) return;
     setState(() {
       _attempt++;
+      _prefill = null;
       _code = '';
     });
+    // A new message is on its way: listen for that one instead.
+    _sms.cancel();
+    _listenForSms();
   }
 
   @override
@@ -95,6 +129,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       length: 6,
                       boxHeight: 60,
                       autofocus: true,
+                      initialCode: _prefill,
                       onCompleted: (code) {
                         setState(() => _code = code);
                         _verify();
