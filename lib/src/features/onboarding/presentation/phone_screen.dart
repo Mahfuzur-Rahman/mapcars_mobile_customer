@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/utils/uk_phone.dart';
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
 import '../../auth/services/apple_sign_in_service.dart';
@@ -40,13 +41,13 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
   }
 
   Future<void> _continuePhone() async {
-    final digits = _phoneCtrl.text.trim().replaceAll(' ', '').replaceAll('-', '');
-    if (digits.isEmpty) {
-      setState(() => _localError = 'Please enter your phone number.');
+    final phone = ukMobileE164(_phoneCtrl.text);
+    if (phone == null) {
+      setState(() => _localError = 'Enter a UK mobile number, like 07400 123456.');
       return;
     }
     setState(() => _localError = null);
-    final ok = await ref.read(authNotifierProvider.notifier).sendPhoneOtp('+44$digits');
+    final ok = await ref.read(authNotifierProvider.notifier).sendPhoneOtp(phone);
     if (ok && mounted) context.go('/otp');
   }
 
