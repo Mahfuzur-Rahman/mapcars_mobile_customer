@@ -6,6 +6,7 @@ import '../../../core/config/app_config.dart';
 import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
 import '../../auth/providers/auth_notifier.dart';
+import 'widgets/resend_code_button.dart';
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
@@ -17,12 +18,36 @@ class OtpScreen extends ConsumerStatefulWidget {
 class _OtpScreenState extends ConsumerState<OtpScreen> {
   String _code = '';
 
+  /// Bumped to rebuild [OtpInput] empty: after a wrong code, and after a resend.
+  int _attempt = 0;
+
   Future<void> _verify() async {
     if (_code.length < 6) return;
     final ok = await ref.read(authNotifierProvider.notifier).verifyPhoneOtp(_code);
-    if (!mounted || !ok) return;
+    if (!mounted) return;
+    if (!ok) {
+      setState(() {
+        _attempt++;
+        _code = '';
+      });
+      return;
+    }
+    // On success the router has usually moved on already (the token change
+    // re-runs its redirect, which picks /home or /profile-setup). This covers
+    // the case where it hasn't.
     final auth = ref.read(authNotifierProvider);
     context.go(auth.isProfileComplete ? '/home' : '/profile-setup');
+  }
+
+  Future<void> _resend() async {
+    final phone = ref.read(authNotifierProvider).pendingPhone;
+    if (phone == null) return;
+    await ref.read(authNotifierProvider.notifier).sendPhoneOtp(phone);
+    if (!mounted) return;
+    setState(() {
+      _attempt++;
+      _code = '';
+    });
   }
 
   @override
@@ -66,8 +91,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                     ),
                     const SizedBox(height: 28),
                     OtpInput(
+                      key: ValueKey(_attempt),
                       length: 6,
                       boxHeight: 60,
+                      autofocus: true,
                       onCompleted: (code) {
                         setState(() => _code = code);
                         _verify();
@@ -95,12 +122,10 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       ),
                     ],
                     const SizedBox(height: 22),
-                    Row(
-                      children: [
-                        const Ico('clock', size: 16, color: Brand.faint),
-                        const SizedBox(width: 6),
-                        Text('Resend code in 0:24', style: tw(FontWeight.w700, 14, Brand.sub)),
-                      ],
+                    ResendCodeButton(
+                      availableAt: auth.resendAvailableAt,
+                      busy: auth.isLoading,
+                      onResend: _resend,
                     ),
                   ],
                 ),
