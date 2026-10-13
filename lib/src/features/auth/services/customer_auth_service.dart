@@ -20,6 +20,8 @@ class CustomerProfile {
     this.accessibilityNeeds,
     this.hasProfilePicture = false,
     required this.isProfileComplete,
+    this.isEmailVerified = false,
+    this.reportsEmailVerified = false,
   });
 
   final String customerId;
@@ -32,6 +34,16 @@ class CustomerProfile {
   final String? accessibilityNeeds;
   final bool hasProfilePicture;
   final bool isProfileComplete;
+
+  /// Whether [email] has been proven to belong to the customer. Trip receipts
+  /// are only emailed to a verified address. False when absent.
+  final bool isEmailVerified;
+
+  /// Whether the response carried `isEmailVerified` at all. An API older than
+  /// profile-email verification omits it, and reading that as "unverified"
+  /// would tell an email sign-up their address needs verifying — so callers
+  /// keep what they already know instead.
+  final bool reportsEmailVerified;
 
   factory CustomerProfile.fromJson(Map<String, dynamic> j) => CustomerProfile(
         // 'customerId' is the new key; 'riderId' is what an API older than the
@@ -47,6 +59,8 @@ class CustomerProfile {
         accessibilityNeeds: j['accessibilityNeeds'] as String?,
         hasProfilePicture: j['hasProfilePicture'] as bool? ?? false,
         isProfileComplete: j['isProfileComplete'] as bool? ?? false,
+        isEmailVerified: j['isEmailVerified'] as bool? ?? false,
+        reportsEmailVerified: j['isEmailVerified'] is bool,
       );
 }
 
@@ -259,6 +273,30 @@ class CustomerAuthService {
             if (accessibilityNeeds != null)
               'accessibilityNeeds': accessibilityNeeds,
           },
+        );
+        return CustomerProfile.fromJson(res.data!);
+      });
+
+  /// Emails a 6-digit code to the (unverified) email saved on the profile.
+  /// 400 when there is no email or it is already verified; 429 when rate
+  /// limited.
+  Future<OtpSentResult> sendProfileEmailCode() => apiCall(() async {
+        final res =
+            await _dio.post<Map<String, dynamic>>('$_base/me/email/send-code');
+        final d = res.data ?? const <String, dynamic>{};
+        return OtpSentResult(
+          message: d['message'] as String? ?? 'Verification code sent.',
+          devCode: d['devCode'] as String?,
+        );
+      });
+
+  /// Confirms the profile email with the emailed [code]. Returns the updated
+  /// profile. A wrong or expired code is a 400 (not a 401), so it never trips
+  /// the session refresh / sign-out path in the Dio interceptor.
+  Future<CustomerProfile> verifyProfileEmail(String code) => apiCall(() async {
+        final res = await _dio.post<Map<String, dynamic>>(
+          '$_base/me/email/verify',
+          data: {'code': code},
         );
         return CustomerProfile.fromJson(res.data!);
       });

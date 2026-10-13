@@ -26,6 +26,14 @@ class Brand {
   static const errorBorder = Color(0xFFF8B4B4);
   static const errorText = Color(0xFF9B1C1C);
 
+  // Status pill tokens ("Verified" / "Unverified"). The text shades are darker
+  // than [green] / [star] so small bold labels keep >= 4.5:1 on their tint.
+  static const successBg = Color(0xFFE9F6E7);
+  static const successText = Color(0xFF1E6B16);
+  static const warnBg = Color(0xFFFCF3D5);
+  static const warnBorder = Color(0xFFEECB5F);
+  static const warnText = Color(0xFF8A5A00);
+
   // Gradients used by buttons / hero cards.
   static const grad = LinearGradient(colors: [blue, green]);
   static const gradGreen = LinearGradient(colors: [green, lime]);

@@ -6,9 +6,12 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/config/env.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/mc.dart';
+import '../../auth/models/auth_state.dart';
 import '../../auth/providers/auth_notifier.dart';
 import '../../auth/services/customer_auth_service.dart';
+import 'widgets/email_verification.dart';
 
 class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
@@ -26,6 +29,8 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   bool _marketingConsent = false;
   String? _formError;
   bool _uploadingPicture = false;
+  bool _sendingCode = false;
+  String? _verifyError;
 
   @override
   void initState() {
@@ -83,6 +88,95 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
           accessibilityNeeds: accessibility.isEmpty ? null : accessibility,
         );
     if (ok && mounted) Navigator.of(context).pop();
+  }
+
+  /// Sends a code to the SAVED email, then opens the code-entry sheet. A send
+  /// failure is shown here, under the button the customer tapped.
+  Future<void> _verifyEmail() async {
+    final notifier = ref.read(authNotifierProvider.notifier);
+    setState(() {
+      _sendingCode = true;
+      _verifyError = null;
+    });
+    final OtpSentResult sent;
+    try {
+      sent = await notifier.sendProfileEmailCode();
+    } catch (e) {
+      // 400 = no email, or it is already verified (e.g. on another device):
+      // refresh so the badge shows the truth alongside the API's message.
+      if (e is ApiException && e.statusCode == 400) await notifier.loadProfile();
+      if (!mounted) return;
+      setState(() {
+        _sendingCode = false;
+        _verifyError = profileEmailErrorMessage(e);
+      });
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _sendingCode = false);
+
+    final verified = await showVerifyEmailSheet(context, sent: sent);
+    if (verified && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Email verified')),
+      );
+    }
+  }
+
+  /// Whether the email field still holds the saved address. Verification
+  /// applies to the saved email only, so unsaved edits hide the Verify action.
+  bool _emailMatchesSaved(AuthState auth) {
+    final saved = (auth.email ?? '').trim().toLowerCase();
+    return saved.isNotEmpty && _emailCtrl.text.trim().toLowerCase() == saved;
+  }
+
+  /// The line(s) under the email field: why to add / verify an email, the
+  /// Verify action, or nothing more than the badge inside the field.
+  Widget _emailStatus(AuthState auth) {
+    final typed = _emailCtrl.text.trim();
+    final saved = (auth.email ?? '').trim();
+
+    Widget hint(String text) => Padding(
+          padding: const EdgeInsets.only(top: 8, left: 4),
+          child: Text(text, style: tw(FontWeight.w600, 13, Brand.sub)),
+        );
+
+    if (typed.isEmpty) {
+      return saved.isEmpty
+          ? hint('Add an email to get trip receipts by email.')
+          : const SizedBox.shrink();
+    }
+    if (!_emailMatchesSaved(auth)) {
+      return hint('Save your changes, then verify this email to get trip receipts.');
+    }
+    if (auth.isEmailVerified) {
+      return hint('Trip receipts will be emailed to this address.');
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: Text('Verify your email to get trip receipts by email.',
+                style: tw(FontWeight.w600, 13, Brand.sub)),
+          ),
+          const SizedBox(height: 10),
+          McGhostButton(
+            _sendingCode ? 'Sending code…' : 'Verify email',
+            icon: _sendingCode ? null : 'mail',
+            full: false,
+            height: 44,
+            onTap: _sendingCode ? null : _verifyEmail,
+          ),
+          if (_verifyError != null) ...[
+            const SizedBox(height: 10),
+            McErrorBanner(_verifyError!),
+          ],
+        ],
+      ),
+    );
   }
 
   Future<void> _pickPicture() async {
@@ -186,7 +280,13 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
                       controller: _emailCtrl,
                       editable: true,
                       keyboardType: TextInputType.emailAddress,
+                      // Rebuild so the status below tracks unsaved edits.
+                      onChanged: (_) => setState(() => _verifyError = null),
+                      suffix: _emailMatchesSaved(auth)
+                          ? EmailVerificationPill(verified: auth.isEmailVerified)
+                          : null,
                     ),
+                    _emailStatus(auth),
                     const SizedBox(height: 22),
                     Text('EMERGENCY CONTACT',
                         style: tw(FontWeight.w800, 12, Brand.sub, 0.5)),

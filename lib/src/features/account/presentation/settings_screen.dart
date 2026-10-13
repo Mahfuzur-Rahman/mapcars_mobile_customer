@@ -9,6 +9,7 @@ import '../../../core/widgets/mc_tab_bar.dart';
 import '../../../core/widgets/support_sheets.dart';
 import '../../auth/providers/auth_notifier.dart';
 import '../../auth/services/customer_auth_service.dart';
+import 'widgets/email_verification.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -69,11 +70,24 @@ class SettingsScreen extends ConsumerWidget {
                               children: [
                                 Text(auth.fullName ?? 'Add your name', style: tw(FontWeight.w900, 18)),
                                 const SizedBox(height: 3),
-                                Text(
-                                  auth.email ?? auth.phone ?? 'Signed in customer',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tw(FontWeight.w700, 13, Brand.sub),
+                                Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        auth.email ?? auth.phone ?? 'Signed in customer',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: tw(FontWeight.w700, 13, Brand.sub),
+                                      ),
+                                    ),
+                                    // Receipts only go to a verified email, so an
+                                    // unverified one is flagged here; Personal info
+                                    // is where it gets verified.
+                                    if ((auth.email ?? '').isNotEmpty && !auth.isEmailVerified) ...[
+                                      const SizedBox(width: 6),
+                                      const EmailVerificationPill(verified: false),
+                                    ],
+                                  ],
                                 ),
                               ],
                             ),

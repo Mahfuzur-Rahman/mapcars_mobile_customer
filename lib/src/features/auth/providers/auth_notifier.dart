@@ -195,6 +195,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         accessibilityNeeds: profile.accessibilityNeeds,
         hasProfilePicture: profile.hasProfilePicture,
         isProfileComplete: profile.isProfileComplete,
+        isEmailVerified: _emailVerifiedFrom(profile),
       );
       await _persistSession();
     } catch (_) {
@@ -231,6 +232,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         accessibilityNeeds: profile.accessibilityNeeds,
         hasProfilePicture: profile.hasProfilePicture,
         isProfileComplete: profile.isProfileComplete,
+        isEmailVerified: _emailVerifiedFrom(profile),
       );
       await _persistSession();
       return true;
@@ -238,6 +240,31 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = state.copyWith(isLoading: false, error: friendlyError(e));
       return false;
     }
+  }
+
+  /// Emails a verification code to the email saved on the profile.
+  ///
+  /// Unlike the sign-in flows this leaves [AuthState.isLoading] and
+  /// [AuthState.error] alone: it runs from a sheet over the edit-profile
+  /// screen, which keeps its own busy/error state, and the global flags would
+  /// turn that screen's Save button into "Saving…". Errors are thrown for the
+  /// caller to show (see `profileEmailErrorMessage`).
+  Future<OtpSentResult> sendProfileEmailCode() =>
+      _service.sendProfileEmailCode();
+
+  /// Verifies the profile email with [code] and folds the updated profile into
+  /// the session. Throws on a wrong/expired code (HTTP 400), same contract as
+  /// [sendProfileEmailCode].
+  Future<void> verifyProfileEmail(String code) async {
+    final profile = await _service.verifyProfileEmail(code);
+    state = state.copyWith(
+      email: profile.email,
+      // The endpoint's whole job is to verify; an API that somehow omits the
+      // flag still answered 200, so the address is verified.
+      isEmailVerified: profile.reportsEmailVerified ? profile.isEmailVerified : true,
+      isProfileComplete: profile.isProfileComplete,
+    );
+    await _persistSession();
   }
 
   Future<bool> uploadProfilePicture(File file) async {
@@ -337,6 +364,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void clearError() => state = state.copyWith(clearError: true);
 
   // ── Helpers ────────────────────────────────────────────────────────────────
+
+  /// The profile's email-verified flag, or null (keep the cached value) when
+  /// the API is too old to report it — see [CustomerProfile.reportsEmailVerified].
+  bool? _emailVerifiedFrom(CustomerProfile profile) =>
+      profile.reportsEmailVerified ? profile.isEmailVerified : null;
 
   Future<void> _applyAuth(AuthResult result) async {
     // Both tokens go into the Dio interceptor providers. The refresh token used

@@ -805,10 +805,22 @@ class _PictureSourceTile extends StatelessWidget {
 
 /// Working N-box OTP / PIN input backed by a single hidden TextField.
 class OtpInput extends StatefulWidget {
-  const OtpInput({super.key, this.length = 6, this.boxHeight = 56, this.onCompleted});
+  const OtpInput({
+    super.key,
+    this.length = 6,
+    this.boxHeight = 56,
+    this.onCompleted,
+    this.onChanged,
+    this.autofocus = false,
+  });
   final int length;
   final double boxHeight;
   final ValueChanged<String>? onCompleted;
+
+  /// Every edit, including deletions — for a screen whose Confirm button reads
+  /// the current code rather than waiting for [onCompleted].
+  final ValueChanged<String>? onChanged;
+  final bool autofocus;
 
   @override
   State<OtpInput> createState() => _OtpInputState();
@@ -847,10 +859,14 @@ class _OtpInputState extends State<OtpInput> {
               child: TextField(
                 controller: _c,
                 focusNode: _f,
+                autofocus: widget.autofocus,
                 keyboardType: TextInputType.number,
+                // Lets iOS / Android offer the code from the SMS or email.
+                autofillHints: const [AutofillHints.oneTimeCode],
                 maxLength: widget.length,
                 onChanged: (v) {
                   setState(() {});
+                  widget.onChanged?.call(v);
                   if (v.length == widget.length) widget.onCompleted?.call(v);
                 },
                 decoration: const InputDecoration(counterText: '', border: InputBorder.none),
