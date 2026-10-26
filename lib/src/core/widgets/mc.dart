@@ -812,6 +812,7 @@ class OtpInput extends StatefulWidget {
     this.onCompleted,
     this.onChanged,
     this.autofocus = false,
+    this.initialCode,
   });
   final int length;
   final double boxHeight;
@@ -821,6 +822,9 @@ class OtpInput extends StatefulWidget {
   /// the current code rather than waiting for [onCompleted].
   final ValueChanged<String>? onChanged;
   final bool autofocus;
+
+  /// Pre-fills the boxes, e.g. with a code read from the SMS on Android.
+  final String? initialCode;
 
   @override
   State<OtpInput> createState() => _OtpInputState();
@@ -833,6 +837,8 @@ class _OtpInputState extends State<OtpInput> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialCode;
+    if (initial != null) _c.text = initial;
     _f.addListener(() => setState(() {}));
   }
 

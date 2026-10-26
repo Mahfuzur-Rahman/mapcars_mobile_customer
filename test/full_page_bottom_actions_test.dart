@@ -232,7 +232,7 @@ void main() {
             await _pump(tester, const PhoneScreen(), textScale: scale);
             if (keyboard) await _openKeyboard(tester);
             await _tap(tester, _button('Continue'));
-            final error = find.text('Please enter your phone number.');
+            final error = find.text('Enter a UK mobile number, like 07400 123456.');
             expectReachableWithoutScrolling(tester, error);
             expectReachableWithoutScrolling(tester, _button('Continue'));
             _noExceptions(tester);

@@ -17,6 +17,11 @@ class SplashScreen extends ConsumerStatefulWidget {
 }
 
 class _SplashScreenState extends ConsumerState<SplashScreen> {
+  /// Set once restore() has finished. Until then a tap is ignored: tapping
+  /// through to /intro used to race the restore and put a signed-in customer
+  /// on the sign-in screen.
+  bool _restored = false;
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +42,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     ref.read(paymentSettingsProvider.future).ignore();
 
     await ref.read(authNotifierProvider.notifier).restore();
+    _restored = true;
     await Future<void>.delayed(const Duration(milliseconds: 1200));
 
     // Only now — session restored, router settled — may a notification tap
@@ -48,12 +54,19 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     context.go(loggedIn ? '/home' : '/intro');
   }
 
+  /// Tap-to-skip: goes where the boot sequence would, once it knows.
+  void _skip() {
+    if (!_restored || !mounted) return;
+    final loggedIn = ref.read(authNotifierProvider).isAuthenticated;
+    context.go(loggedIn ? '/home' : '/intro');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onTap: () => context.go('/intro'),
+        onTap: _skip,
         child: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(

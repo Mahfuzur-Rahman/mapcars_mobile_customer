@@ -66,9 +66,12 @@ class CustomerProfile {
 
 /// Result from send-OTP — wraps the API's OtpSentResponse.
 class OtpSentResult {
-  const OtpSentResult({required this.message, this.devCode});
+  const OtpSentResult({required this.message, this.devCode, this.resendAfterSeconds});
   final String message;
   final String? devCode;
+
+  /// Phone sends: seconds until another code may be requested.
+  final int? resendAfterSeconds;
 }
 
 /// Result from any auth flow that returns a token.
@@ -154,6 +157,7 @@ class CustomerAuthService {
         return OtpSentResult(
           message: d['message'] as String? ?? 'OTP sent.',
           devCode: d['devCode'] as String?,
+          resendAfterSeconds: d['resendAfterSeconds'] as int?,
         );
       });
 
