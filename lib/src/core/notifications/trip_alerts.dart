@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -103,6 +104,28 @@ class TripAlerts {
             : 'Arriving in about $etaLabel.',
         payload: _tripPayload(tripId, 'DriverAssigned'),
       );
+
+  /// The driver wrote in this trip's chat. Sound + banner + buzz.
+  ///
+  /// Foreground only: once the app is backgrounded the server's FCM push
+  /// (`MessageService`) renders the tray notification itself, and raising a
+  /// local one as well would show the same message twice.
+  Future<void> driverMessage(
+      {required String tripId, required String text, String? driverName}) {
+    final state = WidgetsBinding.instance.lifecycleState;
+    if (state != null && state != AppLifecycleState.resumed) {
+      return Future.value();
+    }
+    return _show(
+      // One slot per trip, so a burst of messages updates one banner rather
+      // than stacking a new one each time.
+      id: 8900 + (tripId.hashCode.abs() % 400),
+      title: 'Message from ${driverName ?? 'your driver'}',
+      body: text,
+      // Same shape as the API's messageReceived push; `pushTargetFor` → /chat.
+      payload: jsonEncode({'type': 'messageReceived', 'tripId': tripId}),
+    );
+  }
 
   /// Same keys and values as the API's `tripStatus` push, so one routing
   /// decision (`pushTargetFor`) serves both kinds of tap.

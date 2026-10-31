@@ -442,6 +442,13 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
         state = state.copyWith(
             chatMessages: [...state.chatMessages, msg],
             unreadMessages: unread);
+        // Sound + banner for a driver message nobody is reading yet.
+        if (msg.senderType == 'driver' && !_chatOpen) {
+          unawaited(_ref.read(tripAlertsProvider).driverMessage(
+              tripId: msg.tripId,
+              text: msg.content,
+              driverName: state.activeTrip?.driver?.name));
+        }
       }
     } catch (e) {
       if (kDebugMode) debugPrint('[ride] bad messageReceived payload: $e');
