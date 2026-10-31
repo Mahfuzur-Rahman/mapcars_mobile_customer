@@ -6,6 +6,7 @@ import 'core/notifications/push_service.dart';
 import 'core/notifications/push_taps.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/updates/update_nudge.dart';
 import 'core/widgets/offline_banner.dart';
 import 'features/ride/providers/ride_flow_notifier.dart';
 
@@ -68,7 +69,8 @@ class _MapcarsAppState extends ConsumerState<MapcarsApp>
       // where it matters most (waiting for a car, mid-ride) are the ones nobody
       // would remember to opt in.
       builder: (context, child) =>
-          OfflineBanner(child: child ?? const SizedBox.shrink()),
+          UpdateNudge(
+            child: OfflineBanner(child: child ?? const SizedBox.shrink())),
     );
   }
 }

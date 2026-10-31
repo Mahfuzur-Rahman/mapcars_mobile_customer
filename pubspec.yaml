@@ -51,6 +51,7 @@ dependencies:
   sign_in_with_apple: ^8.2.0
   crypto: ^3.0.7
   smart_auth: ^3.2.0           # Android SMS User Consent: one-tap fill of the sign-in code
+  package_info_plus: ^9.0.1
 
 dev_dependencies:
   flutter_test:
