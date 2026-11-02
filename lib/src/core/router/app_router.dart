@@ -45,6 +45,8 @@ import '../../features/ride/presentation/widgets/ride_gate.dart';
 /// Entries carrying an `icon` are the real user-facing menu: they are the only
 /// ones the drawer shows outside dev builds. Everything else is a prototype
 /// step — a customer must not be able to jump into `/searching` from a menu.
+/// `keywords` are what the menu's search box also matches on — the words a
+/// customer might type for a page, including the sheets the Account page opens.
 const List<StepRoute> kCustomerFlow = [
   StepRoute('/', 'Splash', category: 'Onboarding'),
   StepRoute('/intro', 'Intro', category: 'Onboarding'),
@@ -54,7 +56,8 @@ const List<StepRoute> kCustomerFlow = [
   StepRoute('/email-signup', 'Sign up', category: 'Onboarding'),
   StepRoute('/verify-email', 'Email verify', category: 'Onboarding'),
   StepRoute('/profile-setup', 'Profile setup', category: 'Onboarding'),
-  StepRoute('/home', 'Home', category: 'Ride Flow', icon: 'home'),
+  StepRoute('/home', 'Home', category: 'Ride Flow', icon: 'home',
+      keywords: ['book a ride', 'taxi', 'cab', 'where to', 'map']),
   StepRoute('/set-route', 'Set route', category: 'Ride Flow'),
   StepRoute('/pick-on-map', 'Set on map', category: 'Ride Flow'),
   StepRoute('/choose-ride', 'Choose ride', category: 'Ride Flow'),
@@ -65,13 +68,32 @@ const List<StepRoute> kCustomerFlow = [
   StepRoute('/in-progress', 'In progress', category: 'Ride Flow'),
   StepRoute('/completed', 'Completed', category: 'Ride Flow'),
   StepRoute('/rate', 'Rate + tip', category: 'Ride Flow'),
-  StepRoute('/activity', 'Trip history', category: 'Account', icon: 'clock'),
+  StepRoute('/activity', 'Trip history', category: 'Account', icon: 'clock',
+      keywords: ['trips', 'rides', 'journeys', 'past', 'activity', 'receipt', 'invoice']),
   StepRoute('/receipt', 'Receipt', category: 'Account'),
-  StepRoute('/payment', 'Payment', category: 'Account', icon: 'card'),
-  StepRoute('/account/saved-places', 'Saved places', category: 'Account', icon: 'heart'),
-  StepRoute('/account', 'Account', category: 'Account', icon: 'user'),
-  StepRoute('/account/edit', 'Edit profile', category: 'Account'),
-  StepRoute('/account/change-password', 'Change password', category: 'Account'),
+  StepRoute('/payment', 'Payment', category: 'Account', icon: 'card',
+      keywords: ['card', 'cash', 'pay', 'wallet', 'billing']),
+  StepRoute('/account/saved-places', 'Saved places', category: 'Account', icon: 'heart',
+      keywords: ['address', 'home address', 'work', 'favourites', 'locations']),
+  StepRoute('/account', 'Account', category: 'Account', icon: 'user', keywords: [
+    'settings',
+    'notifications',
+    'safety',
+    'privacy',
+    'help',
+    'support',
+    'contact us',
+    'socials',
+    'facebook',
+    'instagram',
+    'whatsapp',
+    'log out',
+    'sign out',
+  ]),
+  StepRoute('/account/edit', 'Edit profile', category: 'Account', icon: 'edit',
+      keywords: ['name', 'email', 'phone number', 'personal info', 'emergency contact']),
+  StepRoute('/account/change-password', 'Change password', category: 'Account',
+      icon: 'lock', keywords: ['password', 'security', 'sign in']),
   StepRoute('/screens', 'All Screens Index', category: 'Dev Tools'),
 ];
 
