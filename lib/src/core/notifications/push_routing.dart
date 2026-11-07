@@ -53,7 +53,7 @@ PushTarget? pushTargetFor(Map<String, dynamic> data) {
 
   final route = switch (data['type']) {
     'tripStatus' => routeForTripStatus(TripStatus.fromApi(data['status'])),
-    'messageReceived' => '/chat',
+    'messageReceived' => '/messages/$tripId',
     // The "keep searching?" prompt lives on the searching screen.
     'tripExpiring' => '/searching',
     // The trip is over; there is nothing of it left to show.
@@ -72,11 +72,14 @@ PushTarget? pushTargetFor(Map<String, dynamic> data) {
 /// [now] is the trip's freshly-read status, or null when it couldn't be read
 /// (offline), in which case the payload's own route is the best there is.
 String settledPushRoute(PushTarget target, TripStatus? now) {
+  // A conversation is always worth opening — past trips' chats stay readable
+  // (and writable for 24 h). For the live trip, use the in-trip chat so Back
+  // returns to the ride.
+  if (target.route.startsWith('/messages/')) {
+    return (now != null && now.isActive) ? '/chat' : target.route;
+  }
   if (now == null) return target.route;
   final live = routeForTripStatus(now);
   if (live == null) return target.route;
-  // Chat is still worth opening while there is a driver to talk to; once the
-  // ride has ended, the ending is what the customer needs to see.
-  if (target.route == '/chat' && now.isActive) return '/chat';
   return live;
 }

@@ -30,10 +30,10 @@ void main() {
       expect(_status('CancelledByDriver'), const PushTarget('/home', tripId: _id));
     });
 
-    test('a chat message opens that trip\'s chat', () {
+    test('a chat message opens that trip\'s conversation', () {
       expect(
         pushTargetFor({'type': 'messageReceived', 'tripId': _id}),
-        const PushTarget('/chat', tripId: _id),
+        const PushTarget('/messages/$_id', tripId: _id),
       );
     });
 
@@ -99,12 +99,14 @@ void main() {
       expect(settledPushRoute(expiring, TripStatus.expired), '/home');
     });
 
-    test('chat stays chat while the ride is live, and yields once it ends', () {
-      const chat = PushTarget('/chat', tripId: _id);
+    test('chat for the live trip opens the in-trip chat; otherwise the conversation', () {
+      const chat = PushTarget('/messages/$_id', tripId: _id);
       expect(settledPushRoute(chat, TripStatus.driverArrived), '/chat');
       expect(settledPushRoute(chat, TripStatus.inProgress), '/chat');
-      expect(settledPushRoute(chat, TripStatus.completed), '/completed');
-      expect(settledPushRoute(chat, TripStatus.cancelledByCustomer), '/home');
+      // Past trips keep their chat readable (and writable for 24 h).
+      expect(settledPushRoute(chat, TripStatus.completed), '/messages/$_id');
+      expect(settledPushRoute(chat, TripStatus.cancelledByCustomer), '/messages/$_id');
+      expect(settledPushRoute(chat, null), '/messages/$_id');
     });
   });
 
