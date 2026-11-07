@@ -5,20 +5,23 @@ import 'package:intl/intl.dart';
 
 import '../../../core/router/nav.dart';
 import '../../../core/widgets/mc.dart';
-import '../models/chat_message.dart';
-import '../models/trip.dart';
-import '../providers/ride_flow_notifier.dart';
+import '../../messages/chat_party.dart';
+import '../../messages/models/chat_message.dart';
+import '../../messages/providers/chat_inbox.dart';
+import '../../messages/providers/chat_thread.dart';
+import '../../messages/providers/unread_provider.dart';
+import '../../messages/services/messages_service.dart';
 
-/// In-trip chat with the assigned driver.
-///
-/// The trip comes from `RideGate` (same pattern as `tracking_screen.dart`).
-/// Messages are fetched from `GET /trips/{id}/messages` on mount, sent via
-/// POST, and received live via the existing `messageReceived` SignalR push.
+/// One trip's chat with its driver — the active ride's (`/chat`) or any past
+/// one (`/messages/:tripId`). Header and `canSend` come from the conversation,
+/// live messages from `ChatInbox`. While this is on screen its messages are read.
 class ChatScreen extends ConsumerStatefulWidget {
-  const ChatScreen({super.key, required this.trip});
+  const ChatScreen({super.key, required this.tripId, this.backFallback = '/messages'});
 
-  /// The ride being discussed — always a real one, supplied by `RideGate`.
-  final Trip trip;
+  final String tripId;
+
+  /// Where Back goes when there is nothing to pop (e.g. opened from a push).
+  final String backFallback;
 
   @override
   ConsumerState<ChatScreen> createState() => _ChatScreenState();
@@ -28,26 +31,30 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final _ctrl = TextEditingController();
   final _scroll = ScrollController();
 
-  /// Captured in initState: calling `ref.read` from `dispose` throws once the
-  /// scope is being torn down.
-  late final VoidCallback _markChatClosed;
+  /// Captured in initState: `ref.read` throws from `dispose`.
+  late final ChatInbox _inbox;
 
   @override
   void initState() {
     super.initState();
-    final flow = ref.read(rideFlowProvider.notifier);
-    _markChatClosed = flow.markChatClosed;
-    // Reading the conversation is what marks it read — do it before the
-    // fetch, so a message landing mid-fetch does not raise a badge for a
-    // screen the customer is already looking at.
-    flow.markChatOpen();
-    // Fetch existing messages when the screen opens.
-    Future.microtask(flow.fetchMessages);
+    _inbox = ref.read(chatInboxProvider);
+    // Before the fetch, so a message landing mid-fetch doesn't raise a badge
+    // for a chat that is already on screen.
+    _inbox.openTripId = widget.tripId;
+    ref.read(unreadProvider.notifier).clear(widget.tripId);
+    Future.microtask(() async {
+      await ref.read(chatThreadProvider(widget.tripId).notifier).load();
+      try {
+        await ref.read(messagesServiceProvider).markRead(widget.tripId);
+      } catch (_) {
+        // Self-heals on the next open.
+      }
+    });
   }
 
   @override
   void dispose() {
-    _markChatClosed();
+    if (_inbox.openTripId == widget.tripId) _inbox.openTripId = null;
     _ctrl.dispose();
     _scroll.dispose();
     super.dispose();
@@ -57,7 +64,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final text = (preset ?? _ctrl.text).trim();
     if (text.isEmpty) return;
     _ctrl.clear();
-    ref.read(rideFlowProvider.notifier).sendMessage(text);
+    ref.read(chatThreadProvider(widget.tripId).notifier).send(text);
     _scrollToBottom();
   }
 
@@ -74,19 +81,11 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messages = ref.watch(rideFlowProvider.select((s) => s.chatMessages));
-    final driver = widget.trip.driver;
+    final thread = ref.watch(chatThreadProvider(widget.tripId));
+    final conversation = thread.conversation;
 
-    // Driver name / subtitle from the trip. A driver is only attached once one
-    // accepts, so these can legitimately be empty.
-    final driverName = driver?.name ?? 'Your driver';
-    final driverSub = driver == null
-        ? ''
-        : [driver.vehicle, driver.plate].where((s) => s.isNotEmpty).join(' · ');
-
-    // Auto-scroll when new messages arrive.
     ref.listen<List<ChatMessage>>(
-      rideFlowProvider.select((s) => s.chatMessages),
+      chatThreadProvider(widget.tripId).select((s) => s.messages),
       (_, __) => _scrollToBottom(),
     );
 
@@ -95,35 +94,83 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       body: Column(
         children: [
           _Header(
-            name: driverName,
-            subtitle: driverSub,
-            onBack: () => backOr(context, '/tracking'),
+            name: (conversation?.counterpartName.isNotEmpty ?? false)
+                ? conversation!.counterpartName
+                : kCounterpartFallback,
+            subtitle: conversation?.routeLabel ?? '',
+            onBack: () => backOr(context, widget.backFallback),
           ),
-          Expanded(
-            child: messages.isEmpty
-                ? Center(
-                    child: Text(
-                      'No messages yet.\nSend one below!',
-                      textAlign: TextAlign.center,
-                      style: tw(FontWeight.w600, 14, Brand.faint),
-                    ),
-                  )
-                : ListView.builder(
-                    controller: _scroll,
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                    itemCount: messages.length,
-                    itemBuilder: (context, i) => _Bubble(
-                      message: messages[i],
-                      isMine: messages[i].senderType == 'customer',
-                    ),
-                  ),
-          ),
-          _QuickReplies(onTap: _send),
-          _Composer(controller: _ctrl, onSend: () => _send()),
+          Expanded(child: _body(thread)),
+          if (conversation != null && thread.canSend) ...[
+            _QuickReplies(onTap: _send),
+            _Composer(controller: _ctrl, onSend: () => _send()),
+          ] else if (conversation != null)
+            const ChatClosedBar(),
         ],
       ),
     );
   }
+
+  Widget _body(ChatThreadState thread) {
+    if (thread.loading && thread.messages.isEmpty) {
+      return const Center(child: CircularProgressIndicator(color: Brand.blue));
+    }
+    if (thread.error && thread.messages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("Couldn't load messages.",
+                style: tw(FontWeight.w700, 14, Brand.sub)),
+            const SizedBox(height: 12),
+            McGhostButton('Try again',
+                full: false,
+                onTap: () =>
+                    ref.read(chatThreadProvider(widget.tripId).notifier).load()),
+          ],
+        ),
+      );
+    }
+    if (thread.messages.isEmpty) {
+      return Center(
+        child: Text(
+          'No messages yet.\nSend one below!',
+          textAlign: TextAlign.center,
+          style: tw(FontWeight.w600, 14, Brand.faint),
+        ),
+      );
+    }
+    return ListView.builder(
+      controller: _scroll,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      itemCount: thread.messages.length,
+      itemBuilder: (context, i) => _Bubble(
+        message: thread.messages[i],
+        isMine: thread.messages[i].senderType == kMe,
+      ),
+    );
+  }
+}
+
+/// Replaces the composer once the chat has closed. History stays readable.
+class ChatClosedBar extends StatelessWidget {
+  const ChatClosedBar({super.key});
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(
+            16, 14, 16, 14 + MediaQuery.of(context).padding.bottom),
+        decoration: const BoxDecoration(
+          color: Brand.paper,
+          boxShadow: Brand.sheetShadow,
+        ),
+        child: Text(
+          'This chat has closed',
+          textAlign: TextAlign.center,
+          style: tw(FontWeight.w700, 14, Brand.sub),
+        ),
+      );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

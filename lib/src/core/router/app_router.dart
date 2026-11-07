@@ -233,7 +233,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         // when there isn't one.
         _r('/searching', () => RideGate(builder: (t) => SearchingScreen(trip: t))),
         _r('/tracking', () => RideGate(builder: (t) => TrackingScreen(trip: t))),
-        _r('/chat', () => RideGate(builder: (t) => ChatScreen(trip: t))),
+        _r('/chat', () => RideGate(
+            builder: (t) => ChatScreen(tripId: t.id, backFallback: '/tracking'))),
         _r('/in-progress',
             () => RideGate(builder: (t) => InProgressScreen(trip: t))),
         _r(

@@ -11,6 +11,7 @@ import '../providers/ride_flow_notifier.dart';
 import 'widgets/driver_card.dart';
 import 'widgets/trip_safety.dart';
 import 'widgets/trip_tracking_map.dart';
+import '../../messages/providers/unread_provider.dart';
 
 class InProgressScreen extends ConsumerStatefulWidget {
   const InProgressScreen({super.key, required this.trip});
@@ -49,7 +50,7 @@ class _InProgressScreenState extends ConsumerState<InProgressScreen> {
     final driverPosition =
         ref.watch(rideFlowProvider.select((s) => s.driverLocation));
     final unread =
-        ref.watch(rideFlowProvider.select((s) => s.unreadMessages));
+        ref.watch(unreadProvider.select((s) => s.forTrip(widget.trip.id)));
     final eta = _eta;
 
     // Move on once the driver marks the trip complete, or bounce home if it's

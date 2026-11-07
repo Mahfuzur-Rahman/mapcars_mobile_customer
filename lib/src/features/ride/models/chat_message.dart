@@ -70,17 +70,3 @@ class ChatMessage {
 /// messages as the driver's rather than throw.
 String _canonicalSender(String raw) =>
     raw.toLowerCase() == 'rider' ? 'customer' : raw;
-
-/// The unread count once [message] arrives.
-///
-/// Extracted so the rule is stated in one place and can be tested: your own
-/// messages are never unread, and nothing is unread while you are looking at
-/// the conversation. [otherParty] is `'driver'` in the customer app and `'customer'`
-/// in the driver app.
-int unreadAfter({
-  required int current,
-  required ChatMessage message,
-  required String otherParty,
-  required bool chatOpen,
-}) =>
-    message.senderType == otherParty && !chatOpen ? current + 1 : current;

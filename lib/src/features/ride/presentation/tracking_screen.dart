@@ -13,6 +13,7 @@ import '../providers/ride_flow_notifier.dart';
 import 'widgets/driver_card.dart';
 import 'widgets/trip_safety.dart';
 import 'widgets/trip_tracking_map.dart';
+import '../../messages/providers/unread_provider.dart';
 
 class TrackingScreen extends ConsumerStatefulWidget {
   const TrackingScreen({super.key, required this.trip});
@@ -97,7 +98,7 @@ class _TrackingScreenState extends ConsumerState<TrackingScreen> {
     final driverPosition =
         ref.watch(rideFlowProvider.select((s) => s.driverLocation));
     final unread =
-        ref.watch(rideFlowProvider.select((s) => s.unreadMessages));
+        ref.watch(unreadProvider.select((s) => s.forTrip(widget.trip.id)));
 
     // React to the real trip: move on once the driver starts the trip, or
     // bounce home if it's cancelled out from under the customer (e.g. the driver

@@ -2,7 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/api_client.dart';
-import '../models/chat_message.dart';
 import '../models/driver_location.dart';
 import '../models/place.dart';
 import '../models/trip.dart';
@@ -44,10 +43,6 @@ abstract class RideRepository {
   Future<List<Trip>> tripHistory();
 
   Future<void> submitRating(String tripId, {required int score, String? comment});
-
-  Future<List<ChatMessage>> getMessages(String tripId);
-
-  Future<ChatMessage> sendMessage(String tripId, {required String content});
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -166,25 +161,6 @@ class DioRideRepository implements RideRepository {
             if (comment != null && comment.isNotEmpty) 'comment': comment,
           },
         );
-      });
-
-  @override
-  Future<List<ChatMessage>> getMessages(String tripId) =>
-      apiCall(() async {
-        final res = await _dio.get<List<dynamic>>('$_base/$tripId/messages');
-        return (res.data ?? [])
-            .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
-            .toList();
-      });
-
-  @override
-  Future<ChatMessage> sendMessage(String tripId, {required String content}) =>
-      apiCall(() async {
-        final res = await _dio.post<Map<String, dynamic>>(
-          '$_base/$tripId/messages',
-          data: {'content': content},
-        );
-        return ChatMessage.fromJson(res.data!);
       });
 }
 

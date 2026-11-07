@@ -13,7 +13,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mapcars_mobile/src/core/notifications/trip_alerts.dart';
-import 'package:mapcars_mobile/src/features/ride/models/chat_message.dart';
 import 'package:mapcars_mobile/src/features/ride/models/driver_location.dart';
 import 'package:mapcars_mobile/src/features/ride/models/place.dart';
 import 'package:mapcars_mobile/src/features/ride/models/trip.dart';
@@ -70,11 +69,6 @@ class _FakeRepo implements RideRepository {
 
   @override
   Future<Trip> extendTrip(String id) async => current;
-  @override
-  Future<List<ChatMessage>> getMessages(String tripId) async => const [];
-  @override
-  Future<ChatMessage> sendMessage(String tripId, {required String content}) =>
-      throw UnimplementedError();
   @override
   Future<void> submitRating(String tripId,
       {required int score, String? comment}) async {}

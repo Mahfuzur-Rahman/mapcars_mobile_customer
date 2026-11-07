@@ -24,7 +24,6 @@ import 'package:mapcars_mobile/src/core/storage/prefs.dart';
 import 'package:mapcars_mobile/src/core/theme/app_theme.dart';
 import 'package:mapcars_mobile/src/core/widgets/countdown.dart';
 import 'package:mapcars_mobile/src/core/widgets/mc.dart';
-import 'package:mapcars_mobile/src/features/ride/models/chat_message.dart';
 import 'package:mapcars_mobile/src/features/ride/models/driver_location.dart';
 import 'package:mapcars_mobile/src/features/ride/models/payment_settings.dart';
 import 'package:mapcars_mobile/src/features/ride/models/place.dart';
@@ -154,11 +153,6 @@ class _FakeRepo implements RideRepository {
       throw UnimplementedError();
   @override
   Future<Trip> extendTrip(String id) => throw UnimplementedError();
-  @override
-  Future<List<ChatMessage>> getMessages(String tripId) async => const [];
-  @override
-  Future<ChatMessage> sendMessage(String tripId, {required String content}) =>
-      throw UnimplementedError();
   @override
   Future<void> submitRating(String tripId,
       {required int score, String? comment}) async {}

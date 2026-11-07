@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/notifications/trip_alerts.dart';
 import '../../../core/realtime/realtime_service.dart';
+import '../../messages/providers/chat_inbox.dart';
 import '../models/chat_message.dart';
 import '../models/directions_result.dart';
 import '../models/driver_location.dart';
@@ -30,8 +31,6 @@ class RideFlowState {
     this.selectedOptionId,
     this.activeTrip,
     this.driverLocation,
-    this.chatMessages = const [],
-    this.unreadMessages = 0,
     this.realtimeConnected = false,
     this.isLoading = false,
     this.error,
@@ -60,15 +59,6 @@ class RideFlowState {
   /// reporting.
   final DriverLocation? driverLocation;
 
-  /// Chat messages for the active trip — seeded from GET on mount,
-  /// appended by messageReceived pushes and local sends.
-  final List<ChatMessage> chatMessages;
-
-  /// Messages from the driver that have arrived since the customer last had the
-  /// chat screen open. Chat was previously invisible until opened: a driver
-  /// asking "which entrance?" got silence unless the customer happened to look.
-  final int unreadMessages;
-
   /// Whether the SignalR connection is up right now. The trip is still tracked
   /// when it isn't — [RideFlowNotifier] falls back to REST polling — but the
   /// tracking screen says so, rather than showing a frozen car.
@@ -88,8 +78,6 @@ class RideFlowState {
     String? selectedOptionId,
     Trip? activeTrip,
     DriverLocation? driverLocation,
-    List<ChatMessage>? chatMessages,
-    int? unreadMessages,
     bool? realtimeConnected,
     bool? isLoading,
     String? error,
@@ -108,9 +96,6 @@ class RideFlowState {
         // map after the ride ends is worse than no marker.
         driverLocation:
             clearTrip ? null : (driverLocation ?? this.driverLocation),
-        chatMessages: clearTrip ? const [] : (chatMessages ?? this.chatMessages),
-        unreadMessages:
-            clearTrip ? 0 : (unreadMessages ?? this.unreadMessages),
         realtimeConnected: realtimeConnected ?? this.realtimeConnected,
         isLoading: isLoading ?? this.isLoading,
         error: clearError ? null : (error ?? this.error),
@@ -422,34 +407,16 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
     }
   }
 
+  /// Hands the message to the app-wide inbox, which owns badges, banners and
+  /// the open chat thread for every trip.
   void _onMessageReceived(List<Object?>? args) {
     if (args == null || args.isEmpty) return;
     final raw = args.first;
     if (raw is! Map) return;
     try {
       final msg = ChatMessage.fromJson(Map<String, dynamic>.from(raw));
-      if (msg.tripId != state.activeTrip?.id) return;
-      // Deduplicate: the sender's own echo is already appended optimistically
-      // by sendMessage — skip it if we see it again from the push.
-      final already = state.chatMessages.any((m) => m.id == msg.id);
-      if (!already && mounted) {
-        final unread = unreadAfter(
-          current: state.unreadMessages,
-          message: msg,
-          otherParty: 'driver',
-          chatOpen: _chatOpen,
-        );
-        state = state.copyWith(
-            chatMessages: [...state.chatMessages, msg],
-            unreadMessages: unread);
-        // Sound + banner for a driver message nobody is reading yet.
-        if (msg.senderType == 'driver' && !_chatOpen) {
-          unawaited(_ref.read(tripAlertsProvider).driverMessage(
-              tripId: msg.tripId,
-              text: msg.content,
-              driverName: state.activeTrip?.driver?.name));
-        }
-      }
+      _ref.read(chatInboxProvider).receive(msg,
+          senderName: state.activeTrip?.driver?.name);
     } catch (e) {
       if (kDebugMode) debugPrint('[ride] bad messageReceived payload: $e');
     }
@@ -589,53 +556,6 @@ class RideFlowNotifier extends StateNotifier<RideFlowState> {
   void reset() {
     unawaited(_stopRealtime());
     state = const RideFlowState();
-  }
-
-  // ── Chat ──────────────────────────────────────────────────────────────────
-
-  /// Whether the chat screen is on top. Messages arriving while it is do not
-  /// count as unread — the customer is already reading them.
-  bool _chatOpen = false;
-
-  /// Called from the chat screen's `initState`. Clears the badge.
-  void markChatOpen() {
-    _chatOpen = true;
-    if (mounted && state.unreadMessages != 0) {
-      state = state.copyWith(unreadMessages: 0);
-    }
-  }
-
-  /// Called from the chat screen's `dispose`.
-  void markChatClosed() => _chatOpen = false;
-
-  /// Fetches the full message history for the active trip (called on chat
-  /// screen mount). Replaces whatever is in state.
-  Future<void> fetchMessages() async {
-    final id = state.activeTrip?.id;
-    if (id == null) return;
-    try {
-      final messages = await _repo.getMessages(id);
-      if (mounted) state = state.copyWith(chatMessages: messages);
-    } catch (e) {
-      if (kDebugMode) debugPrint('[ride] fetchMessages failed: $e');
-    }
-  }
-
-  /// Sends a message and appends the server's response (with its real ID)
-  /// to state. The realtime push will also arrive, but [_onMessageReceived]
-  /// deduplicates by ID so there's no double.
-  Future<void> sendMessage(String content) async {
-    final id = state.activeTrip?.id;
-    if (id == null) return;
-    try {
-      final msg = await _repo.sendMessage(id, content: content);
-      if (mounted) {
-        state = state.copyWith(
-            chatMessages: [...state.chatMessages, msg]);
-      }
-    } catch (e) {
-      if (kDebugMode) debugPrint('[ride] sendMessage failed: $e');
-    }
   }
 
   @override
