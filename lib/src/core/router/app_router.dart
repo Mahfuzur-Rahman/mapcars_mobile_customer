@@ -39,6 +39,7 @@ import '../../features/ride/presentation/searching_screen.dart';
 import '../../features/ride/presentation/set_route_screen.dart';
 import '../../features/ride/presentation/tracking_screen.dart';
 import '../../features/ride/presentation/widgets/ride_gate.dart';
+import '../../features/messages/presentation/conversations_screen.dart';
 
 /// Ordered walk-through used by the floating hamburger menu drawer.
 ///
@@ -68,6 +69,8 @@ const List<StepRoute> kCustomerFlow = [
   StepRoute('/in-progress', 'In progress', category: 'Ride Flow'),
   StepRoute('/completed', 'Completed', category: 'Ride Flow'),
   StepRoute('/rate', 'Rate + tip', category: 'Ride Flow'),
+  StepRoute('/messages', 'Messages', category: 'Account', icon: 'msg',
+      keywords: ['chat', 'inbox', 'message', 'unread', 'driver', 'passenger', 'conversation']),
   StepRoute('/activity', 'Trip history', category: 'Account', icon: 'clock',
       keywords: ['trips', 'rides', 'journeys', 'past', 'activity', 'receipt', 'invoice']),
   StepRoute('/receipt', 'Receipt', category: 'Account'),
@@ -235,6 +238,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         _r('/tracking', () => RideGate(builder: (t) => TrackingScreen(trip: t))),
         _r('/chat', () => RideGate(
             builder: (t) => ChatScreen(tripId: t.id, backFallback: '/tracking'))),
+        _r('/messages', () => const ConversationsScreen()),
+        GoRoute(
+          path: '/messages/:tripId',
+          builder: (c, s) => ChatScreen(tripId: s.pathParameters['tripId']!),
+        ),
         _r('/in-progress',
             () => RideGate(builder: (t) => InProgressScreen(trip: t))),
         _r(

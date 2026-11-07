@@ -854,13 +854,14 @@ void main() {
     });
 
     // The whole error block — icon (when there is room for it), message and
-    // button — must sit between the Menu / Account circles and the sheet.
+    // button — must sit between the Menu / Messages / Account circles and the
+    // sheet.
     Future<void> expectErrorBlockClear(WidgetTester tester,
         {required bool mayScroll}) async {
       final circles = find.byType(McCircleButton);
-      expect(circles, findsNWidgets(2));
+      expect(circles, findsNWidgets(3));
       final circleRects = [
-        for (var i = 0; i < 2; i++) tester.getRect(circles.at(i)),
+        for (var i = 0; i < 3; i++) tester.getRect(circles.at(i)),
       ];
       final floor =
           circleRects.map((r) => r.bottom).reduce((a, b) => a > b ? a : b);

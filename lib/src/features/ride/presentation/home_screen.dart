@@ -12,6 +12,7 @@ import '../providers/search_history_provider.dart';
 import '../services/live_nearby_cars.dart';
 import '../services/nearby_drivers_service.dart';
 import '../services/saved_places_service.dart';
+import '../../messages/presentation/inbox_button.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -97,7 +98,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           Positioned(
             top: 58,
             right: 16,
-            child: McCircleButton('user', onTap: () => context.go('/account')),
+            child: Row(
+              children: [
+                const InboxButton(),
+                const SizedBox(width: 10),
+                McCircleButton('user', onTap: () => context.go('/account')),
+              ],
+            ),
           ),
           Align(
             alignment: Alignment.bottomCenter,

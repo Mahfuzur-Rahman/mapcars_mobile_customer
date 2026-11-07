@@ -49,7 +49,8 @@ void main() {
     test('menu shows the user destinations, including Edit profile and Change password', () {
       expect(
         [for (final r in kCustomerFlow.where((r) => r.isMenuItem)) r.label],
-        ['Home', 'Trip history', 'Payment', 'Saved places', 'Account', 'Edit profile',
+        ['Home', 'Messages', 'Trip history', 'Payment', 'Saved places', 'Account',
+         'Edit profile',
          'Change password'],
       );
     });
